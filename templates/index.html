@@ -10,12 +10,25 @@
 
 <body>
     <main>
-        <h1>MiniBoard</h1>
-        <p>チームで育てる大きなWebアプリ</p>
-        <form id="form"><input id="name" maxlength="30" placeholder="Nickname" required><textarea id="message"
-                maxlength="300" placeholder="Message" required></textarea><button>投稿</button></form>
+        <header class="app-header">
+            <span class="icon">💬</span>
+            <h1>MiniBoard</h1>
+            <p class="subtitle">チームで育てる掲示板アプリ</p>
+        </header>
+
+        <form id="form">
+            <h2>新規投稿</h2>
+            <input id="name" maxlength="30" placeholder="ニックネーム" required>
+            <textarea id="message" maxlength="300" placeholder="メッセージを入力してください..." required></textarea>
+            <button type="submit">投稿する</button>
+        </form>
+
         <p id="status"></p>
-        <section id="messages"></section>
+
+        <section class="messages-container">
+            <h2>投稿一覧</h2>
+            <div id="messages"></div>
+        </section>
     </main>
     <script src="/static/app.js"></script>
 </body>

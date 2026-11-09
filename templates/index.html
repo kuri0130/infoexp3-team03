@@ -19,7 +19,9 @@
         <form id="form">
             <h2>新規投稿</h2>
             <input id="name" maxlength="30" placeholder="ニックネーム" required>
+            <div class="char-count" data-for="name" aria-live="polite">0 / 30</div>
             <textarea id="message" maxlength="300" placeholder="メッセージを入力してください..." required></textarea>
+            <div class="char-count" data-for="message" aria-live="polite">0 / 300</div>
             <button type="submit">投稿する</button>
         </form>
 

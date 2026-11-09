@@ -152,3 +152,15 @@ button:active {
     font-size: 0.8rem;
     text-align: right;
 }
+
+.char-count {
+    text-align: right;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: -4px 0 4px;
+}
+
+.char-count.near-limit {
+    color: #dc2626;
+    font-weight: 700;
+}

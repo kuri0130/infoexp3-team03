@@ -19,8 +19,12 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             message TEXT NOT NULL,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            edited_at TEXT
         )""")
+        columns = {row["name"] for row in con.execute("PRAGMA table_info(messages)")}
+        if "edited_at" not in columns:
+            con.execute("ALTER TABLE messages ADD COLUMN edited_at TEXT")
         con.execute("""CREATE TABLE IF NOT EXISTS message_votes (
             message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
             voter_id TEXT NOT NULL,
@@ -101,11 +105,16 @@ def update_message(message_id):
     message = str(data.get("message", "")).strip()[:300]
     if not message:
         return jsonify({"error": "message is required"}), 400
+    edited_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
-        cur = con.execute("UPDATE messages SET message=? WHERE id=?", (message,message_id))
+        cur = con.execute(
+            "UPDATE messages SET message=?, edited_at=? WHERE id=?",
+            (message, edited_at, message_id),
+        )
         if cur.rowcount == 0:
             return jsonify({"error": "not found"}), 404
-    return jsonify({"ok": True})
+        row = con.execute("SELECT * FROM messages WHERE id=?", (message_id,)).fetchone()
+    return jsonify(dict(row))
 
 @app.delete("/api/messages/<int:message_id>")
 def delete_message(message_id):

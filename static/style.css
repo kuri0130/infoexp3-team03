@@ -219,9 +219,47 @@ footer {
 }
 
 .meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
     color: #94a3b8;
     font-size: 0.8rem;
-    text-align: right;
+}
+
+.edit-button,
+.edit-actions button {
+    width: auto;
+    padding: 6px 12px;
+    font-size: 0.8rem;
+}
+
+.edit-button {
+    background: #e9e5f7;
+    color: #62539a;
+}
+
+.edit-button:hover {
+    background: #dcd5f2;
+}
+
+.edit-form textarea {
+    min-height: 100px;
+    margin-bottom: 8px;
+}
+
+.edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.edit-actions button[type="button"] {
+    background: #e5e7eb;
+    color: #475569;
+}
+
+.edit-actions button[type="button"]:hover {
+    background: #cbd5e1;
 }
 
 .char-count {

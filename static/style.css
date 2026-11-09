@@ -120,11 +120,17 @@ button:active {
     margin-bottom: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
     transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
 }
 
 .message:hover {
     border-color: #cbd5e1;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.message:focus {
+    outline: 3px solid rgba(37, 99, 235, 0.3);
+    outline-offset: 2px;
 }
 
 .message b {

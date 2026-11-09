@@ -183,3 +183,55 @@ footer {
     }
 }
 
+.message {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    transition: border-color 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.message:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+}
+
+.message:focus {
+    outline: 3px solid rgba(37, 99, 235, 0.3);
+    outline-offset: 2px;
+}
+
+.message b {
+    display: block;
+    color: #0f172a;
+    font-size: 1rem;
+    margin-bottom: 6px;
+}
+
+.message p {
+    margin: 0 0 10px;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: #334155;
+}
+
+.meta {
+    color: #94a3b8;
+    font-size: 0.8rem;
+    text-align: right;
+}
+
+.char-count {
+    text-align: right;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    margin: -4px 0 4px;
+}
+
+.char-count.near-limit {
+    color: #dc2626;
+    font-weight: 700;
+}

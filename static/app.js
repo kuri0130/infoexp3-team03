@@ -6,13 +6,15 @@ async function loadMessages() {
 
     const messages = await r.json();
     document.querySelector('#messages').innerHTML = messages.map(message => `
-        <article class="message" data-message-id="${message.id}" role="button" tabindex="0"
-            aria-label="投稿 #${message.id}をクリックで削除">
+        <article class="message" data-message-id="${message.id}">
             <b>${escapeHtml(message.name)}</b>
             <p class="message-text">${escapeHtml(message.message)}</p>
             <div class="meta">
                 <span>#${message.id}${message.edited_at ? ' ・ 編集済み' : ''}</span>
-                <button type="button" class="edit-button">編集</button>
+                <div class="message-actions">
+                    <button type="button" class="edit-button">編集</button>
+                    <button type="button" class="delete-button">削除</button>
+                </div>
             </div>
         </article>
     `).join('');
@@ -91,19 +93,23 @@ document.querySelector('#messages').addEventListener('click', async event => {
         return;
     }
 
+    if (event.target.closest('.delete-button')) {
+        event.stopPropagation();
+        try {
+            await deleteMessage(message.dataset.messageId);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+        }
+        return;
+    }
+
     if (event.target.closest('.cancel-edit')) {
         event.stopPropagation();
         await loadMessages();
         return;
     }
 
-    if (event.target.closest('button, form')) return;
-
-    try {
-        await deleteMessage(message.dataset.messageId);
-    } catch (error) {
-        document.querySelector('#status').textContent = error.message;
-    }
+    if (event.target.closest('form')) return;
 });
 
 document.querySelector('#messages').addEventListener('submit', async event => {
@@ -113,18 +119,6 @@ document.querySelector('#messages').addEventListener('submit', async event => {
 
     try {
         await updateMessage(event.target.closest('.message'));
-    } catch (error) {
-        document.querySelector('#status').textContent = error.message;
-    }
-});
-
-document.querySelector('#messages').addEventListener('keydown', async event => {
-    if (event.target.closest('form, button')) return;
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-
-    try {
-        await deleteMessage(event.target.dataset.messageId);
     } catch (error) {
         document.querySelector('#status').textContent = error.message;
     }

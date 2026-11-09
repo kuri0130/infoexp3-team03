@@ -199,11 +199,6 @@ footer {
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
 }
 
-.message:focus {
-    outline: 3px solid rgba(37, 99, 235, 0.3);
-    outline-offset: 2px;
-}
-
 .message b {
     display: block;
     color: #0f172a;
@@ -227,6 +222,7 @@ footer {
 }
 
 .edit-button,
+.delete-button,
 .edit-actions button {
     width: auto;
     padding: 6px 12px;
@@ -240,6 +236,20 @@ footer {
 
 .edit-button:hover {
     background: #dcd5f2;
+}
+
+.delete-button {
+    background: #fee2e2;
+    color: #b91c1c;
+}
+
+.delete-button:hover {
+    background: #fecaca;
+}
+
+.message-actions {
+    display: flex;
+    gap: 8px;
 }
 
 .edit-form textarea {

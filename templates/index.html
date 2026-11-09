@@ -1,3 +1,4 @@
+
 <!doctype html>
 <html lang="ja">
 
@@ -9,28 +10,48 @@
 </head>
 
 <body>
-    <main>
+    <main class="container">
+
         <header class="app-header">
-            <span class="icon">💬</span>
+            <div class="logo">💬</div>
             <h1>MiniBoard</h1>
-            <p class="subtitle">チームで育てる掲示板アプリ</p>
+            <p class="subtitle">みんなの声が集まる、小さな掲示板。</p>
         </header>
 
-        <form id="form">
-            <h2>新規投稿</h2>
-            <input id="name" maxlength="30" placeholder="ニックネーム" required>
-            <textarea id="message" maxlength="300" placeholder="メッセージを入力してください..." required></textarea>
-            <button type="submit">投稿する</button>
+        <form id="form" class="post-form">
+            <h2>✏️ 新しい投稿</h2>
+
+            <label for="name">ニックネーム</label>
+            <input id="name" maxlength="30"
+                placeholder="名前を入力してください" required>
+
+            <label for="message">メッセージ</label>
+            <textarea id="message" maxlength="300"
+                placeholder="みんなに伝えたいことを書いてみましょう..."
+                required></textarea>
+
+            <button type="submit">投稿する →</button>
         </form>
 
         <p id="status"></p>
 
         <section class="messages-container">
-            <h2>投稿一覧</h2>
+            <div class="section-header">
+                <h2>📋 みんなの投稿</h2>
+                <span class="section-label">MESSAGE BOARD</span>
+            </div>
+
             <div id="messages"></div>
         </section>
+
+        <footer>
+            <p>MiniBoard © 2026</p>
+        </footer>
+
     </main>
+
     <script src="/static/app.js"></script>
 </body>
 
 </html>
+

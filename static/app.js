@@ -1,5 +1,17 @@
+const VOTER_ID_KEY = 'miniboard-voter-id';
+
+function getVoterId() {
+    let voterId = localStorage.getItem(VOTER_ID_KEY);
+    if (!voterId) {
+        voterId = crypto.randomUUID();
+        localStorage.setItem(VOTER_ID_KEY, voterId);
+    }
+    return voterId;
+}
+
 async function loadMessages() {
-    const r = await fetch('/api/messages');
+    const voterId = getVoterId();
+    const r = await fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}`);
     if (!r.ok) {
         throw new Error('投稿の読み込みに失敗しました');
     }
@@ -14,6 +26,18 @@ async function loadMessages() {
                 <div class="message-actions">
                     <button type="button" class="edit-button">編集</button>
                     <button type="button" class="delete-button">削除</button>
+                </div>
+            </div>
+            <div class="message-actions">
+                <div class="vote-actions" aria-label="投稿を評価">
+                    <button class="vote-button" type="button" data-vote="good"
+                        aria-pressed="${message.my_vote === 'good'}">
+                        Good <span class="vote-count">${message.good_count}</span>
+                    </button>
+                    <button class="vote-button" type="button" data-vote="bad"
+                        aria-pressed="${message.my_vote === 'bad'}">
+                        Bad <span class="vote-count">${message.bad_count}</span>
+                    </button>
                 </div>
             </div>
         </article>
@@ -73,6 +97,26 @@ async function updateMessage(messageElement) {
     document.querySelector('#status').textContent = '投稿を編集しました';
 }
 
+async function voteMessage(messageId, vote) {
+    const response = await fetch(`/api/messages/${messageId}/votes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voter_id: getVoterId(), vote })
+    });
+    if (!response.ok) {
+        throw new Error('評価の送信に失敗しました');
+    }
+
+    const result = await response.json();
+    const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    article.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
+    article.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    article.querySelectorAll('.vote-button').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
+    });
+    document.querySelector('#status').textContent = '評価を更新しました';
+}
+
 function updateCharCount(input) {
     const counter = document.querySelector(`.char-count[data-for="${input.id}"]`);
     if (!counter) return;
@@ -84,12 +128,24 @@ function updateCharCount(input) {
 }
 
 document.querySelector('#messages').addEventListener('click', async event => {
-    const message = event.target.closest('.message');
+    const button = event.target.closest('button');
+    if (!button) return;
+    const message = button.closest('.message');
     if (!message) return;
 
     if (event.target.closest('.edit-button')) {
         event.stopPropagation();
         startEditing(message);
+        return;
+    }
+
+    if (event.target.closest('.vote-button')) {
+        event.stopPropagation();
+        try {
+            await voteMessage(message.dataset.messageId, button.dataset.vote);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+        }
         return;
     }
 

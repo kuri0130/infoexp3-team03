@@ -1,16 +1,40 @@
+const VOTER_ID_KEY = 'miniboard-voter-id';
+
+function getVoterId() {
+    let voterId = localStorage.getItem(VOTER_ID_KEY);
+    if (!voterId) {
+        voterId = crypto.randomUUID();
+        localStorage.setItem(VOTER_ID_KEY, voterId);
+    }
+    return voterId;
+}
+
 async function loadMessages() {
-    const r = await fetch('/api/messages');
+    const voterId = getVoterId();
+    const r = await fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}`);
     if (!r.ok) {
         throw new Error('投稿の読み込みに失敗しました');
     }
 
     const messages = await r.json();
     document.querySelector('#messages').innerHTML = messages.map(message => `
-        <article class="message" data-message-id="${message.id}" role="button" tabindex="0"
-            aria-label="投稿 #${message.id}を削除">
+        <article class="message" data-message-id="${message.id}">
             <b>${escapeHtml(message.name)}</b>
             <p>${escapeHtml(message.message)}</p>
-            <div class="meta">#${message.id} ・クリックで削除</div>
+            <div class="message-actions">
+                <div class="vote-actions" aria-label="投稿を評価">
+                    <button class="vote-button" type="button" data-vote="good"
+                        aria-pressed="${message.my_vote === 'good'}">
+                        Good <span class="vote-count">${message.good_count}</span>
+                    </button>
+                    <button class="vote-button" type="button" data-vote="bad"
+                        aria-pressed="${message.my_vote === 'bad'}">
+                        Bad <span class="vote-count">${message.bad_count}</span>
+                    </button>
+                </div>
+                <button class="delete-button" type="button" aria-label="投稿 #${message.id}を削除">削除</button>
+            </div>
+            <div class="meta">#${message.id}</div>
         </article>
     `).join('');
 }
@@ -35,6 +59,26 @@ async function deleteMessage(messageId) {
     document.querySelector('#status').textContent = '投稿を削除しました';
 }
 
+async function voteMessage(messageId, vote) {
+    const response = await fetch(`/api/messages/${messageId}/votes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voter_id: getVoterId(), vote })
+    });
+    if (!response.ok) {
+        throw new Error('評価の送信に失敗しました');
+    }
+
+    const result = await response.json();
+    const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    article.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
+    article.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    article.querySelectorAll('.vote-button').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
+    });
+    document.querySelector('#status').textContent = '評価を更新しました';
+}
+
 function updateCharCount(input) {
     const counter = document.querySelector(`.char-count[data-for="${input.id}"]`);
     if (!counter) return;
@@ -46,22 +90,17 @@ function updateCharCount(input) {
 }
 
 document.querySelector('#messages').addEventListener('click', async event => {
-    const message = event.target.closest('.message');
+    const button = event.target.closest('button');
+    if (!button) return;
+    const message = button.closest('.message');
     if (!message) return;
 
     try {
-        await deleteMessage(message.dataset.messageId);
-    } catch (error) {
-        document.querySelector('#status').textContent = error.message;
-    }
-});
-
-document.querySelector('#messages').addEventListener('keydown', async event => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
-
-    try {
-        await deleteMessage(event.target.dataset.messageId);
+        if (button.classList.contains('vote-button')) {
+            await voteMessage(message.dataset.messageId, button.dataset.vote);
+        } else if (button.classList.contains('delete-button')) {
+            await deleteMessage(message.dataset.messageId);
+        }
     } catch (error) {
         document.querySelector('#status').textContent = error.message;
     }

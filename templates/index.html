@@ -31,6 +31,14 @@
                 placeholder="みんなに伝えたいことを書いてみましょう..."
                 required></textarea>
             <div class="char-count" data-for="message" aria-live="polite">0 / 300</div>
+            <div class="image-row">
+                <label class="image-picker">
+                    🖼 画像を添付（2枚まで）
+                    <input id="images" type="file" accept="image/png,image/jpeg,image/gif,image/webp" multiple>
+                </label>
+                <span class="image-count" aria-live="polite">0 / 2枚</span>
+            </div>
+            <div id="image-previews"></div>
 
             <button type="submit">投稿する →</button>
         </form>

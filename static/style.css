@@ -191,17 +191,11 @@ footer {
     margin-bottom: 14px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
     transition: border-color 0.2s, box-shadow 0.2s;
-    cursor: pointer;
 }
 
 .message:hover {
     border-color: #cbd5e1;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-}
-
-.message:focus {
-    outline: 3px solid rgba(37, 99, 235, 0.3);
-    outline-offset: 2px;
 }
 
 .message b {
@@ -222,6 +216,79 @@ footer {
     color: #94a3b8;
     font-size: 0.8rem;
     text-align: right;
+}
+
+.message-actions,
+.vote-actions {
+    display: flex;
+    align-items: center;
+}
+
+.message-actions {
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+}
+
+.vote-actions {
+    gap: 8px;
+}
+
+.vote-button,
+.delete-button {
+    width: auto;
+    margin: 0;
+    font: inherit;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.vote-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    border: 1px solid #e2deed;
+    border-radius: 999px;
+    background: #faf9fd;
+    color: #62539a;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.vote-button:hover,
+.vote-button[aria-pressed="true"] {
+    border-color: #9685d1;
+    background: #eeebfa;
+    color: #4e3e91;
+}
+
+.vote-button:focus-visible,
+.delete-button:focus-visible {
+    outline: 3px solid rgba(150, 133, 209, 0.35);
+    outline-offset: 2px;
+}
+
+.vote-count {
+    min-width: 1.4em;
+    color: #77718d;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+}
+
+.delete-button {
+    padding: 6px 9px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #8b8796;
+    font-size: 12px;
+}
+
+.delete-button:hover {
+    border-color: #f0caca;
+    background: #fff3f3;
+    color: #b42318;
 }
 
 .char-count {

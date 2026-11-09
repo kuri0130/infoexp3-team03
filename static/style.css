@@ -1,115 +1,186 @@
+
+/* 全体 */
+* {
+    box-sizing: border-box;
+}
+
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-    background: #f1f5f9;
-    color: #1e293b;
     margin: 0;
-    line-height: 1.6;
+    padding: 40px 20px;
+    font-family: "Segoe UI", "Meiryo", sans-serif;
+    background: #f3f1fa;
+    color: #333;
 }
 
-main {
-    max-width: 680px;
-    margin: 40px auto;
-    padding: 0 16px;
+/* メイン */
+.container {
+    max-width: 750px;
+    margin: 0 auto;
 }
 
+/* ヘッダー */
 .app-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: 35px;
 }
 
-.app-header .icon {
-    font-size: 2.5rem;
-    display: inline-block;
-    margin-bottom: 4px;
+.logo {
+    font-size: 45px;
+    margin-bottom: 5px;
 }
 
 .app-header h1 {
-    margin: 0;
-    font-size: 2rem;
-    color: #0f172a;
-    font-weight: 800;
+    font-size: 36px;
+    color: #7563b8;
+    margin: 5px 0;
+    letter-spacing: 2px;
 }
 
-.app-header .subtitle {
-    margin: 6px 0 0;
-    color: #64748b;
-    font-size: 0.95rem;
+.subtitle {
+    color: #888;
+    font-size: 14px;
 }
 
-form {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-    margin-bottom: 24px;
+/* 投稿フォーム */
+.post-form {
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 5px 20px rgba(70, 50, 120, 0.08);
+    margin-bottom: 35px;
 }
 
-form h2, .messages-container h2 {
-    font-size: 1.15rem;
-    margin: 0 0 16px;
-    color: #334155;
-    font-weight: 700;
+.post-form h2 {
+    font-size: 20px;
+    margin-top: 0;
+    margin-bottom: 25px;
+    color: #62539a;
 }
 
-input, textarea {
-    font: inherit;
+.post-form label {
+    display: block;
+    font-size: 14px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #555;
+}
+
+input,
+textarea {
     width: 100%;
-    padding: 12px 14px;
-    margin: 8px 0;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #f8fafc;
-    box-sizing: border-box;
-    transition: border-color 0.2s, background-color 0.2s, box-shadow 0.2s;
+    padding: 13px 15px;
+    margin-bottom: 20px;
+    border: 1px solid #e2deed;
+    border-radius: 10px;
+    background: #faf9fd;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    transition: 0.2s;
 }
 
-input:focus, textarea:focus {
-    outline: none;
-    background: #ffffff;
-    border-color: #3b82f6;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+input:focus,
+textarea:focus {
+    border-color: #9685d1;
+    background: white;
+    box-shadow: 0 0 0 3px rgba(150, 133, 209, 0.12);
 }
 
 textarea {
-    min-height: 100px;
+    height: 120px;
     resize: vertical;
 }
 
+/* 投稿ボタン */
 button {
-    font: inherit;
     width: 100%;
-    padding: 12px;
-    margin-top: 10px;
-    background: #2563eb;
-    color: #ffffff;
+    padding: 14px;
     border: none;
-    border-radius: 8px;
-    font-weight: 700;
-    font-size: 1rem;
+    border-radius: 10px;
+    background: #8270c3;
+    color: white;
+    font-size: 15px;
+    font-weight: bold;
     cursor: pointer;
-    box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
-    transition: background-color 0.2s, transform 0.1s;
+    transition: 0.2s;
 }
 
 button:hover {
-    background: #1d4ed8;
+    background: #6d5aa9;
+    transform: translateY(-2px);
 }
 
-button:active {
-    transform: translateY(1px);
+/* 投稿一覧 */
+.messages-container {
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 5px 20px rgba(70, 50, 120, 0.08);
 }
 
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.section-header h2 {
+    font-size: 20px;
+    color: #62539a;
+    margin: 0;
+}
+
+.section-label {
+    font-size: 10px;
+    color: #a49bbd;
+    letter-spacing: 1px;
+}
+
+/* JavaScriptで生成される投稿 */
+#messages > div {
+    padding: 18px;
+    margin-bottom: 12px;
+    border: 1px solid #eeeaf5;
+    border-radius: 12px;
+    background: #faf9fd;
+}
+
+/* 状態表示 */
 #status {
     text-align: center;
-    font-size: 0.9rem;
-    color: #2563eb;
-    min-height: 1.4em;
-    margin: 8px 0 16px;
+    color: #7563b8;
+    font-size: 14px;
 }
 
-.messages-container {
-    margin-top: 16px;
+/* フッター */
+footer {
+    text-align: center;
+    margin-top: 35px;
+    color: #aaa;
+    font-size: 12px;
+}
+
+/* スマートフォン対応 */
+@media (max-width: 600px) {
+    body {
+        padding: 25px 15px;
+    }
+
+    .post-form,
+    .messages-container {
+        padding: 20px;
+    }
+
+    .app-header h1 {
+        font-size: 30px;
+    }
+
+    .section-header {
+        align-items: flex-start;
+        gap: 10px;
+        flex-direction: column;
+    }
 }
 
 .message {

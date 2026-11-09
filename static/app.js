@@ -13,7 +13,11 @@ function escapeHtml(s) {
 document.querySelector('#form').addEventListener('submit', async e => {
     e.preventDefault(); const name = document.querySelector('#name').value;
     const message = document.querySelector('#message').value;
-    const r = await fetch('/api/messages', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, message }) });
+    const r = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, message })
+    });
     document.querySelector('#status').textContent = r.ok ? '投稿しました' : '投稿に失敗しました';
     if (r.ok) {
         document.querySelector('#message').value = '';

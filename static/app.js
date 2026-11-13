@@ -1,5 +1,20 @@
+const VOTER_ID_KEY = 'miniboard-voter-id';
+
+function getVoterId() {
+    let voterId = localStorage.getItem(VOTER_ID_KEY);
+    if (!voterId) {
+        voterId = crypto.randomUUID();
+        localStorage.setItem(VOTER_ID_KEY, voterId);
+    }
+    return voterId;
+}
+
 async function loadMessages() {
-    const [r, ri] = await Promise.all([fetch('/api/messages'), fetch('/api/images')]);
+    const voterId = getVoterId();
+    const [r, ri] = await Promise.all([
+        fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}`),
+        fetch('/api/images')
+    ]);
     if (!r.ok) {
         throw new Error('投稿の読み込みに失敗しました');
     }
@@ -11,12 +26,29 @@ async function loadMessages() {
     for (const img of images) (imagesByMessage[img.message_id] ||= []).push(img);
 
     document.querySelector('#messages').innerHTML = messages.map(message => `
-        <article class="message" data-message-id="${message.id}" role="button" tabindex="0"
-            aria-label="投稿 #${message.id}を削除">
+        <article class="message" data-message-id="${message.id}">
             <b>${escapeHtml(message.name)}</b>
-            <p>${escapeHtml(message.message)}</p>
+            <p class="message-text">${escapeHtml(message.message)}</p>
             ${renderImages(imagesByMessage[message.id] || [])}
-            <div class="meta">#${message.id} ・クリックで削除</div>
+            <div class="meta">
+                <span>#${message.id}${message.edited_at ? ' ・ 編集済み' : ''}</span>
+                <div class="message-actions">
+                    <button type="button" class="edit-button">編集</button>
+                    <button type="button" class="delete-button">削除</button>
+                </div>
+            </div>
+            <div class="message-actions">
+                <div class="vote-actions" aria-label="投稿を評価">
+                    <button class="vote-button" type="button" data-vote="good"
+                        aria-pressed="${message.my_vote === 'good'}">
+                        Good <span class="vote-count">${message.good_count}</span>
+                    </button>
+                    <button class="vote-button" type="button" data-vote="bad"
+                        aria-pressed="${message.my_vote === 'bad'}">
+                        Bad <span class="vote-count">${message.bad_count}</span>
+                    </button>
+                </div>
+            </div>
         </article>
     `).join('');
 }
@@ -77,6 +109,59 @@ async function deleteMessage(messageId) {
     document.querySelector('#status').textContent = '投稿を削除しました';
 }
 
+function startEditing(messageElement) {
+    const text = messageElement.querySelector('.message-text').textContent;
+    const form = document.createElement('form');
+    form.className = 'edit-form';
+    form.innerHTML = `
+        <textarea maxlength="300" required>${escapeHtml(text)}</textarea>
+        <div class="edit-actions">
+            <button type="submit">保存</button>
+            <button type="button" class="cancel-edit">キャンセル</button>
+        </div>
+    `;
+
+    messageElement.querySelector('.message-text').replaceWith(form);
+    form.querySelector('textarea').focus();
+}
+
+async function updateMessage(messageElement) {
+    const messageId = messageElement.dataset.messageId;
+    const message = messageElement.querySelector('textarea').value;
+    const r = await fetch(`/api/messages/${messageId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message })
+    });
+
+    if (!r.ok) {
+        throw new Error('投稿の編集に失敗しました');
+    }
+
+    await loadMessages();
+    document.querySelector('#status').textContent = '投稿を編集しました';
+}
+
+async function voteMessage(messageId, vote) {
+    const response = await fetch(`/api/messages/${messageId}/votes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ voter_id: getVoterId(), vote })
+    });
+    if (!response.ok) {
+        throw new Error('評価の送信に失敗しました');
+    }
+
+    const result = await response.json();
+    const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    article.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
+    article.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    article.querySelectorAll('.vote-button').forEach(button => {
+        button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
+    });
+    document.querySelector('#status').textContent = '評価を更新しました';
+}
+
 function updateCharCount(input) {
     const counter = document.querySelector(`.char-count[data-for="${input.id}"]`);
     if (!counter) return;
@@ -88,24 +173,51 @@ function updateCharCount(input) {
 }
 
 document.querySelector('#messages').addEventListener('click', async event => {
-    const message = event.target.closest('.message');
+    const button = event.target.closest('button');
+    if (!button) return; // 画像リンクのクリックはそのまま画像を開く
+    const message = button.closest('.message');
     if (!message) return;
-    if (event.target.closest('.message-images')) return; // 画像クリックは削除しない（画像を開く）
 
-    try {
-        await deleteMessage(message.dataset.messageId);
-    } catch (error) {
-        document.querySelector('#status').textContent = error.message;
+    if (event.target.closest('.edit-button')) {
+        event.stopPropagation();
+        startEditing(message);
+        return;
+    }
+
+    if (event.target.closest('.vote-button')) {
+        event.stopPropagation();
+        try {
+            await voteMessage(message.dataset.messageId, button.dataset.vote);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+        }
+        return;
+    }
+
+    if (event.target.closest('.delete-button')) {
+        event.stopPropagation();
+        try {
+            await deleteMessage(message.dataset.messageId);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+        }
+        return;
+    }
+
+    if (event.target.closest('.cancel-edit')) {
+        event.stopPropagation();
+        await loadMessages();
+        return;
     }
 });
 
-document.querySelector('#messages').addEventListener('keydown', async event => {
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    if (!event.target.matches('.message')) return; // 画像リンク上のEnterは画像を開く
+document.querySelector('#messages').addEventListener('submit', async event => {
+    if (!event.target.classList.contains('edit-form')) return;
     event.preventDefault();
+    event.stopPropagation();
 
     try {
-        await deleteMessage(event.target.dataset.messageId);
+        await updateMessage(event.target.closest('.message'));
     } catch (error) {
         document.querySelector('#status').textContent = error.message;
     }

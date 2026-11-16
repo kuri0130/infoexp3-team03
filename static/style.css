@@ -489,6 +489,64 @@ footer {
     display: none;
 }
 
+.topic-roulette {
+    padding: 18px;
+    margin-bottom: 20px;
+    border: 1px solid #e2deed;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #faf9fd, #f1edfb);
+}
+
+.topic-roulette h3 {
+    margin: 0 0 6px;
+    color: #62539a;
+    font-size: 17px;
+}
+
+.topic-roulette > p {
+    margin: 0 0 14px;
+    color: #77718d;
+    font-size: 13px;
+}
+
+.topic-result {
+    min-height: 52px;
+    display: flex;
+    align-items: center;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: white;
+    color: #334155;
+    font-weight: 700;
+    line-height: 1.6;
+}
+
+.topic-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.topic-actions button {
+    width: auto;
+    padding: 9px 14px;
+    font-size: 13px;
+}
+
+.topic-actions button[hidden] {
+    display: none;
+}
+
+.topic-actions #use-topic-button {
+    background: #e9e5f7;
+    color: #62539a;
+}
+
+.topic-actions #use-topic-button:hover {
+    background: #dcd5f2;
+}
+
 .thread-form label {
     display: block;
     font-size: 14px;

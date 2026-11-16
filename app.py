@@ -93,10 +93,10 @@ def get_threads():
 def create_thread():
     data = request.get_json(silent=True) or {}
     title = str(data.get("title", "")).strip()[:60]
-    name = str(data.get("name", "")).strip()[:30]
+    name = str(data.get("name", "")).strip()[:30] or "匿名"
     message = str(data.get("message", "")).strip()[:300]
-    if not title or not name:
-        return jsonify({"error": "title and name are required"}), 400
+    if not title:
+        return jsonify({"error": "title is required"}), 400
     created_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
         cur = con.execute(
@@ -176,11 +176,11 @@ def get_messages():
 @app.post("/api/messages")
 def create_message():
     data = request.get_json(silent=True) or {}
-    name = str(data.get("name", "")).strip()[:30]
+    name = str(data.get("name", "")).strip()[:30] or "匿名"
     message = str(data.get("message", "")).strip()[:300]
     thread_id = data.get("thread_id")
-    if not name or not message:
-        return jsonify({"error": "name and message are required"}), 400
+    if not message:
+        return jsonify({"error": "message is required"}), 400
     created_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
         if thread_id is not None:

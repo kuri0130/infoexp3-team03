@@ -62,12 +62,16 @@ function renderMessage(message, imagesByMessage, replies = null) {
             <div class="message-actions">
                 <div class="vote-actions" aria-label="投稿を評価">
                     <button class="vote-button" type="button" data-vote="good"
-                        aria-pressed="${message.my_vote === 'good'}">
-                        Good <span class="vote-count">${message.good_count}</span>
+                        aria-pressed="${message.my_vote === 'good'}"
+                        aria-label="Good ${message.good_count}">
+                        <span aria-hidden="true">👍</span>
+                        <span class="vote-count">${message.good_count}</span>
                     </button>
                     <button class="vote-button" type="button" data-vote="bad"
-                        aria-pressed="${message.my_vote === 'bad'}">
-                        Bad <span class="vote-count">${message.bad_count}</span>
+                        aria-pressed="${message.my_vote === 'bad'}"
+                        aria-label="Bad ${message.bad_count}">
+                        <span aria-hidden="true">👎</span>
+                        <span class="vote-count">${message.bad_count}</span>
                     </button>
                 </div>
                 ${isReply ? '' : `<button type="button" class="reply-button">💬 返信${replies.length ? ` (${replies.length})` : ''}</button>`}
@@ -218,11 +222,13 @@ async function updateMessage(messageElement) {
     document.querySelector('#status').textContent = '投稿を編集しました';
 }
 
-async function voteMessage(messageId, vote) {
+async function voteMessage(messageId, vote, removeVote = false) {
     const response = await fetch(`/api/messages/${messageId}/votes`, {
-        method: 'POST',
+        method: removeVote ? 'DELETE' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ voter_id: getVoterId(), vote })
+        body: JSON.stringify(removeVote
+            ? { voter_id: getVoterId() }
+            : { voter_id: getVoterId(), vote })
     });
     if (!response.ok) {
         throw new Error('評価の送信に失敗しました');
@@ -230,13 +236,18 @@ async function voteMessage(messageId, vote) {
 
     const result = await response.json();
     const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    // 返信の中の評価ボタンを拾わないよう、この投稿自身のボタンだけを対象にする
     const votes = article.querySelector(':scope > .message-actions .vote-actions');
     votes.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
     votes.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    votes.querySelector('[data-vote="good"]').setAttribute('aria-label', `Good ${result.good_count}`);
+    votes.querySelector('[data-vote="bad"]').setAttribute('aria-label', `Bad ${result.bad_count}`);
     votes.querySelectorAll('.vote-button').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
     });
-    document.querySelector('#status').textContent = '評価を更新しました';
+    document.querySelector('#status').textContent = removeVote
+        ? '評価を取り消しました'
+        : '評価を更新しました';
 }
 
 function updateCharCount(input) {
@@ -255,24 +266,22 @@ document.querySelector('#messages').addEventListener('click', async event => {
     const message = button.closest('.message');
     if (!message) return;
 
-    if (event.target.closest('.edit-button')) {
-        event.stopPropagation();
+    if (button.classList.contains('edit-button')) {
         startEditing(message);
         return;
     }
 
-    if (event.target.closest('.vote-button')) {
-        event.stopPropagation();
+    if (button.classList.contains('vote-button')) {
+        const removeVote = button.getAttribute('aria-pressed') === 'true';
         try {
-            await voteMessage(message.dataset.messageId, button.dataset.vote);
+            await voteMessage(message.dataset.messageId, button.dataset.vote, removeVote);
         } catch (error) {
             document.querySelector('#status').textContent = error.message;
         }
         return;
     }
 
-    if (event.target.closest('.delete-button')) {
-        event.stopPropagation();
+    if (button.classList.contains('delete-button')) {
         try {
             await deleteMessage(message.dataset.messageId);
         } catch (error) {
@@ -281,22 +290,18 @@ document.querySelector('#messages').addEventListener('click', async event => {
         return;
     }
 
-    if (event.target.closest('.reply-button')) {
-        event.stopPropagation();
+    if (button.classList.contains('reply-button')) {
         openReplyForm(message);
         return;
     }
 
-    if (event.target.closest('.cancel-reply')) {
-        event.stopPropagation();
+    if (button.classList.contains('cancel-reply')) {
         button.closest('.reply-form').remove();
         return;
     }
 
-    if (event.target.closest('.cancel-edit')) {
-        event.stopPropagation();
+    if (button.classList.contains('cancel-edit')) {
         await loadMessages();
-        return;
     }
 });
 

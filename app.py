@@ -22,8 +22,15 @@ def connect():
 
 def init_db():
     with connect() as con:
+        con.execute("""CREATE TABLE IF NOT EXISTS threads (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            name TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )""")
         con.execute("""CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            thread_id INTEGER REFERENCES threads(id) ON DELETE CASCADE,
             name TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at TEXT NOT NULL,
@@ -32,6 +39,24 @@ def init_db():
         columns = {row["name"] for row in con.execute("PRAGMA table_info(messages)")}
         if "edited_at" not in columns:
             con.execute("ALTER TABLE messages ADD COLUMN edited_at TEXT")
+        if "thread_id" not in columns:
+            con.execute("ALTER TABLE messages ADD COLUMN thread_id INTEGER REFERENCES threads(id) ON DELETE CASCADE")
+
+        # 既存メッセージや初期状態のためにデフォルトスレッドを用意する
+        thread_count = con.execute("SELECT COUNT(*) FROM threads").fetchone()[0]
+        if thread_count == 0:
+            now = datetime.now(timezone.utc).isoformat()
+            cur = con.execute(
+                "INSERT INTO threads(title, name, created_at) VALUES(?, ?, ?)",
+                ("総合スレッド", "システム", now),
+            )
+            con.execute("UPDATE messages SET thread_id = ? WHERE thread_id IS NULL", (cur.lastrowid,))
+        else:
+            orphan_exists = con.execute("SELECT 1 FROM messages WHERE thread_id IS NULL LIMIT 1").fetchone()
+            if orphan_exists:
+                first_thread = con.execute("SELECT id FROM threads ORDER BY id ASC LIMIT 1").fetchone()
+                con.execute("UPDATE messages SET thread_id = ? WHERE thread_id IS NULL", (first_thread["id"],))
+
         con.execute("""CREATE TABLE IF NOT EXISTS message_votes (
             message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
             voter_id TEXT NOT NULL,
@@ -49,21 +74,103 @@ def init_db():
 def index():
     return render_template("index.html")
 
+@app.get("/api/threads")
+def get_threads():
+    with connect() as con:
+        rows = con.execute("""
+            SELECT threads.*,
+                (SELECT COUNT(*) FROM messages WHERE messages.thread_id = threads.id) AS message_count,
+                COALESCE(
+                    (SELECT MAX(messages.created_at) FROM messages WHERE messages.thread_id = threads.id),
+                    threads.created_at
+                ) AS last_posted_at
+            FROM threads
+            ORDER BY last_posted_at DESC, threads.id DESC
+        """).fetchall()
+    return jsonify([dict(r) for r in rows])
+
+@app.post("/api/threads")
+def create_thread():
+    data = request.get_json(silent=True) or {}
+    title = str(data.get("title", "")).strip()[:60]
+    name = str(data.get("name", "")).strip()[:30]
+    message = str(data.get("message", "")).strip()[:300]
+    if not title or not name:
+        return jsonify({"error": "title and name are required"}), 400
+    created_at = datetime.now(timezone.utc).isoformat()
+    with connect() as con:
+        cur = con.execute(
+            "INSERT INTO threads(title, name, created_at) VALUES(?, ?, ?)",
+            (title, name, created_at),
+        )
+        thread_id = cur.lastrowid
+        if message:
+            con.execute(
+                "INSERT INTO messages(thread_id, name, message, created_at) VALUES(?, ?, ?, ?)",
+                (thread_id, name, message, created_at),
+            )
+        row = con.execute("""
+            SELECT threads.*,
+                (SELECT COUNT(*) FROM messages WHERE messages.thread_id = threads.id) AS message_count,
+                COALESCE(
+                    (SELECT MAX(messages.created_at) FROM messages WHERE messages.thread_id = threads.id),
+                    threads.created_at
+                ) AS last_posted_at
+            FROM threads
+            WHERE id = ?
+        """, (thread_id,)).fetchone()
+    return jsonify(dict(row)), 201
+
+@app.delete("/api/threads/<int:thread_id>")
+def delete_thread(thread_id):
+    with connect() as con:
+        images = con.execute("""
+            SELECT images.filename
+            FROM images
+            JOIN messages ON images.message_id = messages.id
+            WHERE messages.thread_id = ?
+        """, (thread_id,)).fetchall()
+        con.execute("""
+            DELETE FROM images
+            WHERE message_id IN (SELECT id FROM messages WHERE thread_id = ?)
+        """, (thread_id,))
+        cur = con.execute("DELETE FROM threads WHERE id = ?", (thread_id,))
+        if cur.rowcount == 0:
+            return jsonify({"error": "not found"}), 404
+    for img in images:
+        (UPLOAD_DIR / img["filename"]).unlink(missing_ok=True)
+    return "", 204
+
 @app.get("/api/messages")
 def get_messages():
     voter_id = request.args.get("voter_id", "")
+    thread_id = request.args.get("thread_id", type=int)
     with connect() as con:
-        rows = con.execute("""
-            SELECT messages.*,
-                (SELECT COUNT(*) FROM message_votes
-                 WHERE message_id = messages.id AND vote = 'good') AS good_count,
-                (SELECT COUNT(*) FROM message_votes
-                 WHERE message_id = messages.id AND vote = 'bad') AS bad_count,
-                (SELECT vote FROM message_votes
-                 WHERE message_id = messages.id AND voter_id = ?) AS my_vote
-            FROM messages
-            ORDER BY id DESC
-        """, (voter_id,)).fetchall()
+        if thread_id is not None:
+            rows = con.execute("""
+                SELECT messages.*,
+                    (SELECT COUNT(*) FROM message_votes
+                     WHERE message_id = messages.id AND vote = 'good') AS good_count,
+                    (SELECT COUNT(*) FROM message_votes
+                     WHERE message_id = messages.id AND vote = 'bad') AS bad_count,
+                    (SELECT vote FROM message_votes
+                     WHERE message_id = messages.id AND voter_id = ?) AS my_vote
+                FROM messages
+                WHERE messages.thread_id = ?
+                ORDER BY id ASC
+            """, (voter_id, thread_id)).fetchall()
+        else:
+            rows = con.execute("""
+                SELECT messages.*,
+                    (SELECT COUNT(*) FROM message_votes
+                     WHERE message_id = messages.id AND vote = 'good') AS good_count,
+                    (SELECT COUNT(*) FROM message_votes
+                     WHERE message_id = messages.id AND vote = 'bad') AS bad_count,
+                    (SELECT vote FROM message_votes
+                     WHERE message_id = messages.id AND voter_id = ?) AS my_vote
+                FROM messages
+                ORDER BY id DESC
+            """, (voter_id,)).fetchall()
     return jsonify([dict(r) for r in rows])
 
 @app.post("/api/messages")
@@ -71,11 +178,26 @@ def create_message():
     data = request.get_json(silent=True) or {}
     name = str(data.get("name", "")).strip()[:30]
     message = str(data.get("message", "")).strip()[:300]
+    thread_id = data.get("thread_id")
     if not name or not message:
         return jsonify({"error": "name and message are required"}), 400
     created_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
-        cur = con.execute("INSERT INTO messages(name,message,created_at) VALUES(?,?,?)", (name,message,created_at))
+        if thread_id is not None:
+            try:
+                thread_id = int(thread_id)
+            except (TypeError, ValueError):
+                return jsonify({"error": "invalid thread_id"}), 400
+            if con.execute("SELECT 1 FROM threads WHERE id = ?", (thread_id,)).fetchone() is None:
+                return jsonify({"error": "thread not found"}), 404
+        else:
+            first_thread = con.execute("SELECT id FROM threads ORDER BY id ASC LIMIT 1").fetchone()
+            thread_id = first_thread["id"] if first_thread else None
+
+        cur = con.execute(
+            "INSERT INTO messages(thread_id, name, message, created_at) VALUES(?, ?, ?, ?)",
+            (thread_id, name, message, created_at),
+        )
         row = con.execute("SELECT * FROM messages WHERE id=?", (cur.lastrowid,)).fetchone()
     return jsonify(dict(row)), 201
 

@@ -1,3 +1,6 @@
+import { getCurrentThreadId } from './state.js';
+import { getVoterId } from './utils.js';
+
 const DANMAKU_COLORS = [
     '#7563b8',
     '#e11d48',
@@ -13,6 +16,7 @@ const QUICK_STAMPS = ['🎉', '👏', '🔥', '草', '神', '💡'];
 let enabled = false;
 let loopTimer = null;
 let messageCursor = 0;
+let stageElement = null;
 
 function getBoardTexts() {
     return Array.from(document.querySelectorAll('#messages .message-text'))
@@ -53,6 +57,39 @@ function spawnDanmaku(stage, text, { highlight = false } = {}) {
     animation.onfinish = () => item.remove();
 }
 
+async function broadcastDanmaku(text) {
+    try {
+        await fetch('/api/danmaku', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text,
+                thread_id: getCurrentThreadId(),
+                sender_id: getVoterId()
+            })
+        });
+    } catch (error) {
+        console.error('弾幕の送信に失敗しました:', error);
+    }
+}
+
+function shootDanmaku(stage, text) {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    spawnDanmaku(stage, trimmed, { highlight: true });
+    broadcastDanmaku(trimmed);
+}
+
+export function receiveDanmaku(data) {
+    if (!enabled || !stageElement || !data?.text) return;
+    if (data.sender_id && data.sender_id === getVoterId()) return;
+    const currentThreadId = getCurrentThreadId();
+    if (data.thread_id != null && currentThreadId !== null && data.thread_id !== currentThreadId) {
+        return;
+    }
+    spawnDanmaku(stageElement, data.text, { highlight: true });
+}
+
 function createStage() {
     const stage = document.createElement('div');
     stage.id = 'danmaku-stage';
@@ -80,15 +117,14 @@ function createControlBar(stage) {
     bar.addEventListener('click', event => {
         const stamp = event.target.closest('.danmaku-stamp');
         if (!stamp) return;
-        spawnDanmaku(stage, stamp.dataset.text, { highlight: true });
+        shootDanmaku(stage, stamp.dataset.text);
     });
 
     bar.querySelector('.danmaku-shot-form').addEventListener('submit', event => {
         event.preventDefault();
         const input = bar.querySelector('.danmaku-shot-input');
-        const text = input.value.trim();
-        if (!text) return;
-        spawnDanmaku(stage, text, { highlight: true });
+        if (!input.value.trim()) return;
+        shootDanmaku(stage, input.value);
         input.value = '';
     });
 
@@ -101,6 +137,7 @@ export function initDanmaku() {
     if (!toggleButton) return;
 
     const stage = createStage();
+    stageElement = stage;
     const bar = createControlBar(stage);
 
     function startLoop() {

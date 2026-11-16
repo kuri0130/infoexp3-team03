@@ -1,3 +1,4 @@
+import { receiveDanmaku } from './danmaku.js';
 import { getCurrentThreadId } from './state.js';
 import { updateVoteCounts } from './votes.js';
 
@@ -79,6 +80,15 @@ export function initRealtime({ onThreadsRefresh, onMessagesRefresh }) {
             updateVoteCounts(data.message_id, data.good_count, data.bad_count);
         } catch (error) {
             console.error('いいね更新イベントの解析に失敗しました:', error);
+        }
+    });
+
+    source.addEventListener('danmaku', event => {
+        try {
+            const data = JSON.parse(event.data);
+            receiveDanmaku(data);
+        } catch (error) {
+            console.error('弾幕イベントの解析に失敗しました:', error);
         }
     });
 

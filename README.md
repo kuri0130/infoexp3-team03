@@ -16,9 +16,10 @@ docker run --rm -p 5000:5000 miniboard
 - GET `/api/messages`
 - POST `/api/messages`
 - POST `/api/messages/<id>/votes` (`{"voter_id": "...", "vote": "good" | "bad"}`)
+- DELETE `/api/messages/<id>/votes` (`{"voter_id": "..."}`) to remove your vote
 - PUT `/api/messages/<id>`
 - DELETE `/api/messages/<id>`
 
-Each browser can cast one vote per message and change it later. Vote totals are stored in SQLite.
+Each browser can cast one vote per message, change it later, or remove it by selecting the active Good/Bad button again. Vote totals are stored in SQLite.
 
 > 授業用。Public URLに個人情報・秘密情報を入力しないこと。

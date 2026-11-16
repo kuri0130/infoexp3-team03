@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <title>MiniBoard</title>
     <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/danmaku.css">
 </head>
 
 <body>
@@ -15,6 +16,13 @@
             <div class="logo">💬</div>
             <h1>MiniBoard</h1>
             <p class="subtitle">みんなの声が集まる、小さな掲示板。</p>
+            <div class="header-fun-actions">
+                <button type="button" id="toggle-danmaku" class="fun-toggle-button" aria-pressed="false">
+                    <span class="fun-toggle-icon" aria-hidden="true">🎇</span>
+                    <span class="fun-toggle-text">弾幕モード: OFF</span>
+                    <span class="fun-toggle-badge">画面にコメントが流れる！</span>
+                </button>
+            </div>
         </header>
 
         <section class="threads-container">

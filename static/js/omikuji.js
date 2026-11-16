@@ -112,7 +112,7 @@ function getTierBadge(tier) {
     }
 }
 
-function showOmikujiOverlay(omikuji) {
+function showOmikujiOverlay({ omikuji, messageText, threadId, onOmikujiDrawn }) {
     const overlay = document.querySelector('#omikuji-overlay');
     if (!overlay) return;
 
@@ -141,9 +141,21 @@ function showOmikujiOverlay(omikuji) {
                     <span class="omikuji-lucky-val">${escapeHtml(luckyColor)}</span>
                 </div>
             </div>
-            <button type="button" id="close-omikuji-overlay" class="omikuji-close-button">
-                スレッドで結果を見る
-            </button>
+            <form id="omikuji-post-form" class="omikuji-post-form">
+                <label for="omikuji-name-input" class="omikuji-name-label">
+                    ニックネーム（任意・空欄なら「匿名」）
+                </label>
+                <input id="omikuji-name-input" class="omikuji-name-input" maxlength="30"
+                    placeholder="名前を入力してください（空欄で「匿名」）">
+                <div class="omikuji-modal-actions">
+                    <button type="submit" id="submit-omikuji-post" class="omikuji-close-button">
+                        結果をスレッドに投稿する →
+                    </button>
+                    <button type="button" id="close-omikuji-overlay" class="omikuji-skip-button">
+                        投稿せずに閉じる
+                    </button>
+                </div>
+            </form>
         </div>
     `;
 
@@ -152,7 +164,14 @@ function showOmikujiOverlay(omikuji) {
     const fxLayer = overlay.querySelector('.omikuji-fx-layer');
     spawnConfetti(fxLayer, tier);
 
+    const postForm = overlay.querySelector('#omikuji-post-form');
+    const nameInput = overlay.querySelector('#omikuji-name-input');
+    const submitButton = overlay.querySelector('#submit-omikuji-post');
     const closeButton = overlay.querySelector('#close-omikuji-overlay');
+
+    const mainNameInput = document.querySelector('#name');
+    nameInput.value = (mainNameInput?.value || '').trim() || getSavedName();
+
     const closeOverlay = () => {
         overlay.hidden = true;
         overlay.innerHTML = '';
@@ -165,14 +184,40 @@ function showOmikujiOverlay(omikuji) {
         }
     };
 
-    closeButton.addEventListener('click', closeOverlay);
-    overlay.addEventListener('click', event => {
-        if (event.target === overlay || event.target === fxLayer) {
+    postForm.addEventListener('submit', async event => {
+        event.preventDefault();
+        submitButton.disabled = true;
+        submitButton.textContent = '投稿しています...';
+
+        try {
+            const rawName = nameInput.value.trim();
+            const res = await fetch('/api/messages', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    thread_id: threadId,
+                    name: rawName,
+                    message: messageText,
+                    author_id: getVoterId()
+                })
+            });
+            if (!res.ok) {
+                throw new Error('おみくじ結果の投稿に失敗しました');
+            }
+            saveName(rawName);
             closeOverlay();
+            await onOmikujiDrawn();
+            setStatus(`おみくじ結果（${label}）をスレッドに投稿しました！`);
+        } catch (error) {
+            setStatus(error.message);
+            submitButton.disabled = false;
+            submitButton.textContent = '結果をスレッドに投稿する →';
         }
     });
+
+    closeButton.addEventListener('click', closeOverlay);
     document.addEventListener('keydown', onKeyDown);
-    closeButton.focus();
+    nameInput.focus();
 }
 
 export function initOmikuji({ onOmikujiDrawn }) {
@@ -184,12 +229,6 @@ export function initOmikuji({ onOmikujiDrawn }) {
         const current = getCurrentThread();
         if (!current || current.thread_type !== 'omikuji') return;
 
-        const nameInput = document.querySelector('#name');
-        const rawName = (nameInput?.value || '').trim() || getSavedName();
-        if (rawName) {
-            saveName(rawName);
-        }
-
         drawButton.disabled = true;
         drawButton.textContent = '🎋 おみくじを振っています...';
         shrineIcon?.classList.add('is-shaking');
@@ -197,12 +236,7 @@ export function initOmikuji({ onOmikujiDrawn }) {
         try {
             const [res] = await Promise.all([
                 fetch(`/api/threads/${current.id}/omikuji`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        name: rawName,
-                        author_id: getVoterId()
-                    })
+                    method: 'POST'
                 }),
                 wait(650)
             ]);
@@ -212,9 +246,13 @@ export function initOmikuji({ onOmikujiDrawn }) {
             }
 
             const data = await res.json();
-            showOmikujiOverlay(data.omikuji);
-            await onOmikujiDrawn();
-            setStatus(`おみくじを引きました！（結果：${data.omikuji.label}）`);
+            showOmikujiOverlay({
+                omikuji: data.omikuji,
+                messageText: data.message_text,
+                threadId: current.id,
+                onOmikujiDrawn
+            });
+            setStatus(`おみくじを引きました！（結果：${data.omikuji.label}）名前を入れて投稿できます`);
         } catch (error) {
             setStatus(error.message);
         } finally {

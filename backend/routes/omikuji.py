@@ -1,10 +1,8 @@
-from datetime import datetime, timezone
 import random
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 
 from backend.db import connect
-from backend.utils import extract_author_id, public_row
 
 omikuji_bp = Blueprint("omikuji", __name__)
 
@@ -108,10 +106,6 @@ LUCKY_COLORS = [
 
 @omikuji_bp.post("/api/threads/<int:thread_id>/omikuji")
 def draw_omikuji(thread_id):
-    data = request.get_json(silent=True) or {}
-    name = str(data.get("name", "")).strip()[:30] or "匿名"
-    author_id = extract_author_id(data)
-
     with connect() as con:
         thread = con.execute(
             "SELECT id, thread_type FROM threads WHERE id = ?",
@@ -122,33 +116,23 @@ def draw_omikuji(thread_id):
         if thread["thread_type"] != "omikuji":
             return jsonify({"error": "omikuji is only available in the omikuji thread"}), 400
 
-        fortune = random.choices(
-            FORTUNES,
-            weights=[f["weight"] for f in FORTUNES],
-            k=1,
-        )[0]
-        advice = random.choice(fortune["advices"])
-        lucky_item = random.choice(LUCKY_ITEMS)
-        lucky_color = random.choice(LUCKY_COLORS)
+    fortune = random.choices(
+        FORTUNES,
+        weights=[f["weight"] for f in FORTUNES],
+        k=1,
+    )[0]
+    advice = random.choice(fortune["advices"])
+    lucky_item = random.choice(LUCKY_ITEMS)
+    lucky_color = random.choice(LUCKY_COLORS)
 
-        message_text = (
-            f"🎋 おみくじ結果：【{fortune['label']}】\n"
-            f"{advice}\n"
-            f"✨ ラッキーアイテム：{lucky_item} / ラッキーカラー：{lucky_color}"
-        )
-        created_at = datetime.now(timezone.utc).isoformat()
-        cur = con.execute(
-            "INSERT INTO messages(thread_id, name, message, author_id, created_at) VALUES(?, ?, ?, ?, ?)",
-            (thread_id, name, message_text, author_id, created_at),
-        )
-        row = con.execute(
-            """SELECT *, (CASE WHEN author_id IS NOT NULL AND author_id = ? THEN 1 ELSE 0 END) AS is_owner
-               FROM messages WHERE id = ?""",
-            (author_id or "", cur.lastrowid),
-        ).fetchone()
+    message_text = (
+        f"🎋 おみくじ結果：【{fortune['label']}】\n"
+        f"{advice}\n"
+        f"✨ ラッキーアイテム：{lucky_item} / ラッキーカラー：{lucky_color}"
+    )
 
     return jsonify({
-        "message": public_row(row),
+        "message_text": message_text,
         "omikuji": {
             "tier": fortune["tier"],
             "label": fortune["label"],
@@ -156,4 +140,4 @@ def draw_omikuji(thread_id):
             "lucky_item": lucky_item,
             "lucky_color": lucky_color,
         },
-    }), 201
+    })

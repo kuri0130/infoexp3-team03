@@ -406,3 +406,57 @@
         font-size: 52px;
     }
 }
+
+/* モーダル内ニックネーム入力＆投稿フォーム */
+.omikuji-post-form {
+    text-align: left;
+    border-top: 1px solid #e2e8f0;
+    padding-top: 16px;
+}
+
+.omikuji-name-label {
+    display: block;
+    font-size: 12px;
+    font-weight: bold;
+    color: #475569;
+    margin-bottom: 6px;
+}
+
+.omikuji-name-input {
+    width: 100%;
+    padding: 11px 13px;
+    margin-bottom: 12px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #ffffff;
+    font-size: 14px;
+}
+
+.omikuji-name-input:focus {
+    border-color: #f59e0b;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.16);
+}
+
+.omikuji-modal-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.omikuji-skip-button {
+    width: 100%;
+    padding: 10px 16px;
+    border: 1px solid #cbd5e1;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: 13px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.omikuji-skip-button:hover {
+    background: #f1f5f9;
+    color: #334155;
+    transform: none;
+}

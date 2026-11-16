@@ -25,9 +25,23 @@ async function loadMessages() {
     const imagesByMessage = {};
     for (const img of images) (imagesByMessage[img.message_id] ||= []).push(img);
 
-    document.querySelector('#messages').innerHTML = messages.map(message => `
-        <article class="message" data-message-id="${message.id}">
-            <b>${escapeHtml(message.name)}</b>
+    // 返信（parent_id あり）を親投稿ごとにまとめる。返信は古い順に表示
+    const repliesByParent = {};
+    for (const m of messages) {
+        if (m.parent_id != null) (repliesByParent[m.parent_id] ||= []).unshift(m);
+    }
+    const topLevel = messages.filter(m => m.parent_id == null);
+
+    document.querySelector('#messages').innerHTML = topLevel
+        .map(message => renderMessage(message, imagesByMessage, repliesByParent[message.id] || []))
+        .join('');
+}
+
+function renderMessage(message, imagesByMessage, replies = null) {
+    const isReply = replies === null;
+    return `
+        <article class="message${isReply ? ' reply' : ''}" data-message-id="${message.id}">
+            <b>${isReply ? '<span class="reply-mark">↳</span> ' : ''}${escapeHtml(message.name)}</b>
             <p class="message-text">${escapeHtml(message.message)}</p>
             ${renderImages(imagesByMessage[message.id] || [])}
             <div class="meta">
@@ -48,9 +62,62 @@ async function loadMessages() {
                         Bad <span class="vote-count">${message.bad_count}</span>
                     </button>
                 </div>
+                ${isReply ? '' : `<button type="button" class="reply-button">💬 返信${replies.length ? ` (${replies.length})` : ''}</button>`}
             </div>
+            ${isReply ? '' : `<div class="replies">${replies.map(r => renderMessage(r, imagesByMessage)).join('')}</div>`}
         </article>
-    `).join('');
+    `;
+}
+
+// ---- 返信 ----
+const NAME_KEY = 'miniboard-name'; // 最後に使ったニックネーム
+
+function openReplyForm(messageElement) {
+    const repliesBox = messageElement.querySelector(':scope > .replies');
+    const existing = repliesBox.querySelector(':scope > .reply-form');
+    if (existing) {
+        existing.querySelector('textarea').focus();
+        return;
+    }
+    const form = document.createElement('form');
+    form.className = 'reply-form';
+    form.innerHTML = `
+        <input class="reply-name" maxlength="30" placeholder="ニックネーム" required>
+        <textarea class="reply-message" maxlength="300" placeholder="返信を書く..." required></textarea>
+        <div class="char-count reply-count" aria-live="polite">0 / 300</div>
+        <div class="edit-actions">
+            <button type="submit">返信する</button>
+            <button type="button" class="cancel-reply">キャンセル</button>
+        </div>
+    `;
+    // 投稿フォームに入力中の名前、なければ前回使った名前を入れておく
+    form.querySelector('.reply-name').value =
+        document.querySelector('#name').value || localStorage.getItem(NAME_KEY) || '';
+    const textarea = form.querySelector('textarea');
+    textarea.addEventListener('input', () => {
+        const counter = form.querySelector('.reply-count');
+        counter.textContent = `${textarea.value.length} / ${textarea.maxLength}`;
+        counter.classList.toggle('near-limit', textarea.value.length >= textarea.maxLength * 0.9);
+    });
+    repliesBox.append(form);
+    (form.querySelector('.reply-name').value ? textarea : form.querySelector('.reply-name')).focus();
+}
+
+async function sendReply(form) {
+    const parentId = Number(form.closest('.message').dataset.messageId);
+    const name = form.querySelector('.reply-name').value;
+    const message = form.querySelector('.reply-message').value;
+    const r = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, message, parent_id: parentId })
+    });
+    if (!r.ok) {
+        throw new Error('返信に失敗しました');
+    }
+    localStorage.setItem(NAME_KEY, name.trim());
+    await loadMessages();
+    document.querySelector('#status').textContent = '返信しました';
 }
 
 // ---- 画像添付 ----
@@ -96,7 +163,8 @@ function escapeHtml(value) {
 }
 
 async function deleteMessage(messageId) {
-    if (!window.confirm('この投稿を削除しますか？')) {
+    const hasReplies = document.querySelector(`.message[data-message-id="${messageId}"] .replies .message`);
+    if (!window.confirm(hasReplies ? 'この投稿と返信をすべて削除しますか？' : 'この投稿を削除しますか？')) {
         return;
     }
 
@@ -110,7 +178,7 @@ async function deleteMessage(messageId) {
 }
 
 function startEditing(messageElement) {
-    const text = messageElement.querySelector('.message-text').textContent;
+    const text = messageElement.querySelector(':scope > .message-text').textContent;
     const form = document.createElement('form');
     form.className = 'edit-form';
     form.innerHTML = `
@@ -121,13 +189,13 @@ function startEditing(messageElement) {
         </div>
     `;
 
-    messageElement.querySelector('.message-text').replaceWith(form);
+    messageElement.querySelector(':scope > .message-text').replaceWith(form);
     form.querySelector('textarea').focus();
 }
 
 async function updateMessage(messageElement) {
     const messageId = messageElement.dataset.messageId;
-    const message = messageElement.querySelector('textarea').value;
+    const message = messageElement.querySelector(':scope > .edit-form textarea').value;
     const r = await fetch(`/api/messages/${messageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -154,9 +222,10 @@ async function voteMessage(messageId, vote) {
 
     const result = await response.json();
     const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
-    article.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
-    article.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
-    article.querySelectorAll('.vote-button').forEach(button => {
+    const votes = article.querySelector(':scope > .message-actions .vote-actions');
+    votes.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
+    votes.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    votes.querySelectorAll('.vote-button').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
     });
     document.querySelector('#status').textContent = '評価を更新しました';
@@ -204,6 +273,18 @@ document.querySelector('#messages').addEventListener('click', async event => {
         return;
     }
 
+    if (event.target.closest('.reply-button')) {
+        event.stopPropagation();
+        openReplyForm(message);
+        return;
+    }
+
+    if (event.target.closest('.cancel-reply')) {
+        event.stopPropagation();
+        button.closest('.reply-form').remove();
+        return;
+    }
+
     if (event.target.closest('.cancel-edit')) {
         event.stopPropagation();
         await loadMessages();
@@ -212,6 +293,18 @@ document.querySelector('#messages').addEventListener('click', async event => {
 });
 
 document.querySelector('#messages').addEventListener('submit', async event => {
+    if (event.target.classList.contains('reply-form')) {
+        event.preventDefault();
+        const submit = event.target.querySelector('button[type="submit"]');
+        submit.disabled = true; // 二重送信防止
+        try {
+            await sendReply(event.target);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+            submit.disabled = false;
+        }
+        return;
+    }
     if (!event.target.classList.contains('edit-form')) return;
     event.preventDefault();
     event.stopPropagation();
@@ -247,6 +340,7 @@ document.querySelector('#form').addEventListener('submit', async event => {
         : '投稿に失敗しました';
 
     if (r.ok) {
+        localStorage.setItem(NAME_KEY, nameInput.value.trim());
         // 画像があれば、作成された投稿IDに対してアップロードする
         if (selectedImages.length) {
             const created = await r.json();

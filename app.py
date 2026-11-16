@@ -27,11 +27,15 @@ def init_db():
             name TEXT NOT NULL,
             message TEXT NOT NULL,
             created_at TEXT NOT NULL,
-            edited_at TEXT
+            edited_at TEXT,
+            parent_id INTEGER REFERENCES messages(id) ON DELETE CASCADE
         )""")
         columns = {row["name"] for row in con.execute("PRAGMA table_info(messages)")}
         if "edited_at" not in columns:
             con.execute("ALTER TABLE messages ADD COLUMN edited_at TEXT")
+        # 返信機能：返信先の投稿ID（NULLなら通常の投稿）
+        if "parent_id" not in columns:
+            con.execute("ALTER TABLE messages ADD COLUMN parent_id INTEGER REFERENCES messages(id) ON DELETE CASCADE")
         con.execute("""CREATE TABLE IF NOT EXISTS message_votes (
             message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,
             voter_id TEXT NOT NULL,
@@ -73,9 +77,18 @@ def create_message():
     message = str(data.get("message", "")).strip()[:300]
     if not name or not message:
         return jsonify({"error": "name and message are required"}), 400
+    parent_id = data.get("parent_id")
+    if parent_id is not None and (not isinstance(parent_id, int) or isinstance(parent_id, bool)):
+        return jsonify({"error": "parent_id must be an integer"}), 400
     created_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
-        cur = con.execute("INSERT INTO messages(name,message,created_at) VALUES(?,?,?)", (name,message,created_at))
+        if parent_id is not None:
+            parent = con.execute("SELECT id, parent_id FROM messages WHERE id=?", (parent_id,)).fetchone()
+            if parent is None:
+                return jsonify({"error": "parent message not found"}), 404
+            # 返信は1階層まで：返信への返信は元の投稿にぶら下げる
+            parent_id = parent["parent_id"] or parent["id"]
+        cur = con.execute("INSERT INTO messages(name,message,created_at,parent_id) VALUES(?,?,?,?)", (name,message,created_at,parent_id))
         row = con.execute("SELECT * FROM messages WHERE id=?", (cur.lastrowid,)).fetchone()
     return jsonify(dict(row)), 201
 
@@ -132,11 +145,14 @@ def update_message(message_id):
 @app.delete("/api/messages/<int:message_id>")
 def delete_message(message_id):
     with connect() as con:
-        cur = con.execute("DELETE FROM messages WHERE id=?", (message_id,))
+        # 投稿本体と、その投稿への返信をまとめて削除する
+        ids = [message_id] + [r["id"] for r in con.execute("SELECT id FROM messages WHERE parent_id=?", (message_id,))]
+        marks = ",".join("?" * len(ids))
+        cur = con.execute(f"DELETE FROM messages WHERE id IN ({marks})", ids)
         if cur.rowcount == 0:
             return jsonify({"error": "not found"}), 404
-        images = con.execute("SELECT filename FROM images WHERE message_id=?", (message_id,)).fetchall()
-        con.execute("DELETE FROM images WHERE message_id=?", (message_id,))
+        images = con.execute(f"SELECT filename FROM images WHERE message_id IN ({marks})", ids).fetchall()
+        con.execute(f"DELETE FROM images WHERE message_id IN ({marks})", ids)
     for img in images:
         (UPLOAD_DIR / img["filename"]).unlink(missing_ok=True)
     return "", 204

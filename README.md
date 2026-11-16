@@ -22,4 +22,6 @@ docker run --rm -p 5000:5000 miniboard
 
 Each browser can cast one vote per message, change it later, or remove it by selecting the active Good/Bad button again. Vote totals are stored in SQLite.
 
+The thread list also includes a topic roulette with conversation prompts. Select a prompt to prefill a new thread title and opening post.
+
 > 授業用。Public URLに個人情報・秘密情報を入力しないこと。

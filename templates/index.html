@@ -45,6 +45,18 @@
                 </div>
             </form>
 
+            <section class="topic-roulette" aria-labelledby="topic-roulette-heading">
+                <h3 id="topic-roulette-heading">🎲 お題ガチャ</h3>
+                <p>お題を引いて、みんなで話すスレッドを作ってみましょう。</p>
+                <div id="topic-result" class="topic-result" aria-live="polite">
+                    「お題を引く」を押してください
+                </div>
+                <div class="topic-actions">
+                    <button type="button" id="draw-topic-button">🎲 お題を引く</button>
+                    <button type="button" id="use-topic-button" hidden>このお題でスレッドを作る</button>
+                </div>
+            </section>
+
             <div id="threads" class="thread-list"></div>
         </section>
 

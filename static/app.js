@@ -1,5 +1,8 @@
 const VOTER_ID_KEY = 'miniboard-voter-id';
 
+let threads = [];
+let currentThreadId = null;
+
 function getVoterId() {
     let voterId = localStorage.getItem(VOTER_ID_KEY);
     if (!voterId) {
@@ -9,10 +12,89 @@ function getVoterId() {
     return voterId;
 }
 
+function formatDateTime(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
+function getCurrentThread() {
+    return threads.find(t => t.id === currentThreadId) || null;
+}
+
+function updateThreadContextUI() {
+    const current = getCurrentThread();
+    const badge = document.querySelector('#current-thread-badge');
+    const heading = document.querySelector('#messages-heading');
+    const postButton = document.querySelector('#form button[type="submit"]');
+
+    if (current) {
+        badge.textContent = `投稿先スレッド: ${current.title}`;
+        heading.textContent = `📋 ${current.title}`;
+        postButton.disabled = false;
+    } else {
+        badge.textContent = 'スレッドを選択するか、新しくスレッドを立ててください';
+        heading.textContent = '📋 みんなの投稿';
+        postButton.disabled = true;
+    }
+}
+
+function renderThreads() {
+    const list = document.querySelector('#threads');
+    if (!threads.length) {
+        list.innerHTML = '<p class="empty-state">スレッドがまだありません。「＋ スレッドを立てる」から作成できます。</p>';
+        updateThreadContextUI();
+        return;
+    }
+
+    list.innerHTML = threads.map(thread => `
+        <div class="thread-item${thread.id === currentThreadId ? ' active' : ''}"
+             data-thread-id="${thread.id}" tabindex="0" role="button"
+             aria-pressed="${thread.id === currentThreadId}">
+            <div class="thread-item-main">
+                <div class="thread-title">${escapeHtml(thread.title)}</div>
+                <div class="thread-meta">
+                    <span>作成: ${escapeHtml(thread.name)}</span>
+                    <span>投稿数: ${thread.message_count}件</span>
+                    <span>更新: ${formatDateTime(thread.last_posted_at || thread.created_at)}</span>
+                </div>
+            </div>
+            ${thread.is_owner ? '<button type="button" class="delete-thread-button" aria-label="スレッドを削除">削除</button>' : ''}
+        </div>
+    `).join('');
+
+    updateThreadContextUI();
+}
+
+async function loadThreads() {
+    const r = await fetch(`/api/threads?author_id=${encodeURIComponent(getVoterId())}`);
+    if (!r.ok) {
+        throw new Error('スレッドの読み込みに失敗しました');
+    }
+    threads = await r.json();
+    if (!threads.some(t => t.id === currentThreadId)) {
+        currentThreadId = threads.length ? threads[0].id : null;
+    }
+    renderThreads();
+}
+
 async function loadMessages() {
+    if (currentThreadId === null) {
+        document.querySelector('#messages').innerHTML =
+            '<p class="empty-state">スレッドが選択されていません。</p>';
+        return;
+    }
+
     const voterId = getVoterId();
     const [r, ri] = await Promise.all([
-        fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}`),
+        fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}&author_id=${encodeURIComponent(voterId)}&thread_id=${currentThreadId}`),
         fetch('/api/images')
     ]);
     if (!r.ok) {
@@ -25,17 +107,24 @@ async function loadMessages() {
     const imagesByMessage = {};
     for (const img of images) (imagesByMessage[img.message_id] ||= []).push(img);
 
+    if (!messages.length) {
+        document.querySelector('#messages').innerHTML =
+            '<p class="empty-state">このスレッドにはまだ投稿がありません。最初の投稿を書いてみましょう！</p>';
+        return;
+    }
+
     document.querySelector('#messages').innerHTML = messages.map(message => `
         <article class="message" data-message-id="${message.id}">
             <b>${escapeHtml(message.name)}</b>
             <p class="message-text">${escapeHtml(message.message)}</p>
             ${renderImages(imagesByMessage[message.id] || [])}
             <div class="meta">
-                <span>#${message.id}${message.edited_at ? ' ・ 編集済み' : ''}</span>
+                <span>#${message.id} ・ ${formatDateTime(message.created_at)}${message.edited_at ? ` ・ 編集済み (${formatDateTime(message.edited_at)})` : ''}</span>
+                ${message.is_owner ? `
                 <div class="message-actions">
                     <button type="button" class="edit-button">編集</button>
                     <button type="button" class="delete-button">削除</button>
-                </div>
+                </div>` : ''}
             </div>
             <div class="message-actions">
                 <div class="vote-actions" aria-label="投稿を評価">
@@ -99,16 +188,39 @@ function escapeHtml(value) {
     return element.innerHTML;
 }
 
+async function deleteThread(threadId) {
+    if (!window.confirm('このスレッドと中の投稿をすべて削除しますか？')) {
+        return;
+    }
+
+    const r = await fetch(`/api/threads/${threadId}?author_id=${encodeURIComponent(getVoterId())}`, {
+        method: 'DELETE'
+    });
+    if (!r.ok) {
+        throw new Error(r.status === 403 ? '自分が立てたスレッド以外は削除できません' : 'スレッドの削除に失敗しました');
+    }
+
+    if (currentThreadId === threadId) {
+        currentThreadId = null;
+    }
+    await loadThreads();
+    await loadMessages();
+    document.querySelector('#status').textContent = 'スレッドを削除しました';
+}
+
 async function deleteMessage(messageId) {
     if (!window.confirm('この投稿を削除しますか？')) {
         return;
     }
 
-    const r = await fetch(`/api/messages/${messageId}`, { method: 'DELETE' });
+    const r = await fetch(`/api/messages/${messageId}?author_id=${encodeURIComponent(getVoterId())}`, {
+        method: 'DELETE'
+    });
     if (!r.ok) {
-        throw new Error('投稿の削除に失敗しました');
+        throw new Error(r.status === 403 ? '自分の投稿以外は削除できません' : '投稿の削除に失敗しました');
     }
 
+    await loadThreads();
     await loadMessages();
     document.querySelector('#status').textContent = '投稿を削除しました';
 }
@@ -135,11 +247,11 @@ async function updateMessage(messageElement) {
     const r = await fetch(`/api/messages/${messageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, author_id: getVoterId() })
     });
 
     if (!r.ok) {
-        throw new Error('投稿の編集に失敗しました');
+        throw new Error(r.status === 403 ? '自分の投稿以外は編集できません' : '投稿の編集に失敗しました');
     }
 
     await loadMessages();
@@ -181,6 +293,98 @@ function updateCharCount(input) {
     counter.textContent = `${length} / ${max}`;
     counter.classList.toggle('near-limit', length >= max * 0.9);
 }
+
+// ---- スレッド作成フォームの開閉 ----
+const threadForm = document.querySelector('#thread-form');
+
+document.querySelector('#toggle-thread-form').addEventListener('click', () => {
+    threadForm.hidden = !threadForm.hidden;
+    if (!threadForm.hidden) {
+        document.querySelector('#thread-title').focus();
+    }
+});
+
+document.querySelector('#cancel-thread-form').addEventListener('click', () => {
+    threadForm.reset();
+    threadForm.querySelectorAll('#thread-title, #thread-name, #thread-message').forEach(updateCharCount);
+    threadForm.hidden = true;
+});
+
+threadForm.addEventListener('submit', async event => {
+    event.preventDefault();
+
+    const titleInput = document.querySelector('#thread-title');
+    const nameInput = document.querySelector('#thread-name');
+    const messageInput = document.querySelector('#thread-message');
+
+    const r = await fetch('/api/threads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            title: titleInput.value,
+            name: nameInput.value,
+            message: messageInput.value,
+            author_id: getVoterId()
+        })
+    });
+
+    if (!r.ok) {
+        document.querySelector('#status').textContent = 'スレッドの作成に失敗しました';
+        return;
+    }
+
+    const created = await r.json();
+    currentThreadId = created.id;
+    threadForm.reset();
+    threadForm.querySelectorAll('#thread-title, #thread-name, #thread-message').forEach(updateCharCount);
+    threadForm.hidden = true;
+
+    await loadThreads();
+    await loadMessages();
+    document.querySelector('#status').textContent = 'スレッドを立てました';
+});
+
+async function selectThread(threadId) {
+    if (currentThreadId === threadId) return;
+    currentThreadId = threadId;
+    renderThreads();
+    await loadMessages();
+}
+
+document.querySelector('#threads').addEventListener('click', async event => {
+    const item = event.target.closest('.thread-item');
+    if (!item) return;
+    const threadId = Number(item.dataset.threadId);
+
+    if (event.target.closest('.delete-thread-button')) {
+        event.stopPropagation();
+        try {
+            await deleteThread(threadId);
+        } catch (error) {
+            document.querySelector('#status').textContent = error.message;
+        }
+        return;
+    }
+
+    try {
+        await selectThread(threadId);
+    } catch (error) {
+        document.querySelector('#status').textContent = error.message;
+    }
+});
+
+document.querySelector('#threads').addEventListener('keydown', async event => {
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    if (event.target.closest('.delete-thread-button')) return;
+    const item = event.target.closest('.thread-item');
+    if (!item) return;
+    event.preventDefault();
+    try {
+        await selectThread(Number(item.dataset.threadId));
+    } catch (error) {
+        document.querySelector('#status').textContent = error.message;
+    }
+});
 
 document.querySelector('#messages').addEventListener('click', async event => {
     const button = event.target.closest('button');
@@ -229,7 +433,7 @@ document.querySelector('#messages').addEventListener('submit', async event => {
     }
 });
 
-document.querySelectorAll('#name, #message').forEach(input => {
+document.querySelectorAll('#name, #message, #thread-title, #thread-name, #thread-message').forEach(input => {
     input.addEventListener('input', () => updateCharCount(input));
     updateCharCount(input);
 });
@@ -237,14 +441,21 @@ document.querySelectorAll('#name, #message').forEach(input => {
 document.querySelector('#form').addEventListener('submit', async event => {
     event.preventDefault();
 
+    if (currentThreadId === null) {
+        document.querySelector('#status').textContent = '先にスレッドを立ててください';
+        return;
+    }
+
     const nameInput = document.querySelector('#name');
     const messageInput = document.querySelector('#message');
     const r = await fetch('/api/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+            thread_id: currentThreadId,
             name: nameInput.value,
-            message: messageInput.value
+            message: messageInput.value,
+            author_id: getVoterId()
         })
     });
 
@@ -269,10 +480,14 @@ document.querySelector('#form').addEventListener('submit', async event => {
         messageInput.value = '';
         updateCharCount(nameInput);
         updateCharCount(messageInput);
+        await loadThreads();
         await loadMessages();
     }
 });
 
-loadMessages().catch(error => {
+(async () => {
+    await loadThreads();
+    await loadMessages();
+})().catch(error => {
     document.querySelector('#status').textContent = error.message;
 });

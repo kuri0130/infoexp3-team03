@@ -16,10 +16,17 @@ import {
     updateCharCount
 } from './utils.js';
 
+function getOmikujiMessageClass(text) {
+    if (text.includes('【大吉】')) return ' omikuji-message-daikichi';
+    if (text.includes('【中吉】')) return ' omikuji-message-chukichi';
+    return '';
+}
+
 function renderMessage(message, imagesByMessage, replies = null) {
     const isReply = replies === null;
+    const omikujiClass = isReply ? '' : getOmikujiMessageClass(message.message);
     return `
-        <article class="message${isReply ? ' reply' : ''}" data-message-id="${message.id}">
+        <article class="message${isReply ? ' reply' : ''}${omikujiClass}" data-message-id="${message.id}">
             <b>${isReply ? '<span class="reply-mark">↳</span> ' : ''}${escapeHtml(message.name)}</b>
             <p class="message-text">${escapeHtml(message.message)}</p>
             ${renderImages(imagesByMessage[message.id] || [])}

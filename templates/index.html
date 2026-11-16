@@ -7,6 +7,7 @@
     <title>MiniBoard</title>
     <link rel="stylesheet" href="/static/style.css">
     <link rel="stylesheet" href="/static/danmaku.css">
+    <link rel="stylesheet" href="/static/omikuji.css">
 </head>
 
 <body>
@@ -102,6 +103,21 @@
                 <span class="section-label">MESSAGE BOARD</span>
             </div>
 
+            <section id="omikuji-panel" class="omikuji-panel" aria-labelledby="omikuji-heading" hidden>
+                <div class="omikuji-panel-header">
+                    <span class="omikuji-shrine-icon" id="omikuji-shrine-icon" aria-hidden="true">⛩️</span>
+                    <div>
+                        <h3 id="omikuji-heading">今日の運勢おみくじ</h3>
+                        <p class="omikuji-desc">ボタンを押しておみくじを引こう！結果はスレッドに投稿されます（大吉は超派手演出✨）</p>
+                    </div>
+                </div>
+                <div class="omikuji-controls">
+                    <button type="button" id="draw-omikuji-button" class="draw-omikuji-button">
+                        🎋 おみくじを引く！
+                    </button>
+                </div>
+            </section>
+
             <div id="messages"></div>
         </section>
 
@@ -110,6 +126,8 @@
         </footer>
 
     </main>
+
+    <div id="omikuji-overlay" class="omikuji-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="omikuji-modal-title"></div>
 
     <script type="module" src="/static/js/main.js"></script>
 </body>

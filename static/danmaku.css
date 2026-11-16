@@ -1,0 +1,153 @@
+/* ---- 弾幕モード ---- */
+.header-fun-actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: center;
+}
+
+.fun-toggle-button {
+    width: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-size: 15px;
+    font-weight: bold;
+    background: linear-gradient(135deg, #ffffff 0%, #f3edff 100%);
+    color: #5d4ea3;
+    border: 2px solid #9685d1;
+    box-shadow: 0 6px 18px rgba(117, 99, 184, 0.2);
+    cursor: pointer;
+    transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.fun-toggle-button:hover {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 22px rgba(117, 99, 184, 0.3);
+}
+
+.fun-toggle-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.fun-toggle-badge {
+    font-size: 11px;
+    font-weight: bold;
+    padding: 3px 10px;
+    border-radius: 999px;
+    background: #e5dcfa;
+    color: #524199;
+}
+
+.fun-toggle-button[aria-pressed="true"] {
+    background: linear-gradient(135deg, #7563b8 0%, #ec4899 100%);
+    color: #fff;
+    border-color: transparent;
+    box-shadow: 0 6px 24px rgba(236, 72, 153, 0.42);
+    animation: danmaku-pulse 2s infinite;
+}
+
+.fun-toggle-button[aria-pressed="true"] .fun-toggle-badge {
+    background: rgba(255, 255, 255, 0.24);
+    color: #fff;
+}
+
+@keyframes danmaku-pulse {
+    0%, 100% {
+        box-shadow: 0 6px 22px rgba(236, 72, 153, 0.4);
+    }
+    50% {
+        box-shadow: 0 8px 30px rgba(117, 99, 184, 0.6);
+    }
+}
+
+.danmaku-stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.danmaku-item {
+    position: fixed;
+    left: 100vw;
+    white-space: nowrap;
+    font-weight: bold;
+    text-shadow: 0 2px 6px rgba(255, 255, 255, 0.95), 0 0 2px rgba(255, 255, 255, 0.95);
+    user-select: none;
+    will-change: transform;
+}
+
+.danmaku-item.danmaku-highlight {
+    background: rgba(255, 255, 255, 0.88);
+    padding: 4px 12px;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+.danmaku-bar {
+    position: fixed;
+    left: 50%;
+    bottom: 18px;
+    transform: translateX(-50%);
+    z-index: 1001;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(8px);
+    border: 1px solid #dfd9f3;
+    border-radius: 999px;
+    padding: 8px 14px;
+    box-shadow: 0 8px 24px rgba(70, 50, 120, 0.18);
+    max-width: calc(100vw - 24px);
+}
+
+.danmaku-bar[hidden] {
+    display: none;
+}
+
+.danmaku-stamps {
+    display: flex;
+    gap: 4px;
+}
+
+.danmaku-stamp {
+    width: auto;
+    padding: 6px 10px;
+    font-size: 16px;
+    border-radius: 999px;
+    background: #f5f2fc;
+    color: #333;
+}
+
+.danmaku-stamp:hover {
+    background: #e7e0fa;
+}
+
+.danmaku-shot-form {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.danmaku-shot-input {
+    width: 190px;
+    margin-bottom: 0;
+    padding: 7px 12px;
+    border-radius: 999px;
+    font-size: 13px;
+}
+
+.danmaku-shot-button {
+    width: auto;
+    padding: 7px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    white-space: nowrap;
+}

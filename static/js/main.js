@@ -1,3 +1,4 @@
+import { initDanmaku } from './danmaku.js';
 import { initImages } from './images.js';
 import { initMessages, loadMessages } from './messages.js';
 import { initThreads, loadThreads } from './threads.js';
@@ -9,6 +10,7 @@ async function reloadBoard() {
     await loadMessages();
 }
 
+initDanmaku();
 initImages();
 initVotes();
 initThreads({ onThreadChange: loadMessages });

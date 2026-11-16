@@ -51,11 +51,23 @@ def create_message():
     name = str(data.get("name", "")).strip()[:30] or "匿名"
     message = str(data.get("message", "")).strip()[:300]
     thread_id = data.get("thread_id")
+    parent_id = data.get("parent_id")
     author_id = extract_author_id(data)
     if not message:
         return jsonify({"error": "message is required"}), 400
+    if parent_id is not None and (not isinstance(parent_id, int) or isinstance(parent_id, bool)):
+        return jsonify({"error": "parent_id must be an integer"}), 400
     created_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
+        if parent_id is not None:
+            parent = con.execute("SELECT id, parent_id, thread_id FROM messages WHERE id=?", (parent_id,)).fetchone()
+            if parent is None:
+                return jsonify({"error": "parent message not found"}), 404
+            # 返信は1階層まで：返信への返信は元の投稿にぶら下げる
+            parent_id = parent["parent_id"] or parent["id"]
+            if thread_id is None:
+                thread_id = parent["thread_id"]
+
         if thread_id is not None:
             try:
                 thread_id = int(thread_id)
@@ -68,8 +80,8 @@ def create_message():
             thread_id = first_thread["id"] if first_thread else None
 
         cur = con.execute(
-            "INSERT INTO messages(thread_id, name, message, author_id, created_at) VALUES(?, ?, ?, ?, ?)",
-            (thread_id, name, message, author_id, created_at),
+            "INSERT INTO messages(thread_id, name, message, author_id, created_at, parent_id) VALUES(?, ?, ?, ?, ?, ?)",
+            (thread_id, name, message, author_id, created_at, parent_id),
         )
         row = con.execute(
             """SELECT *, (CASE WHEN author_id IS NOT NULL AND author_id = ? THEN 1 ELSE 0 END) AS is_owner
@@ -114,9 +126,12 @@ def delete_message(message_id):
             return jsonify({"error": "not found"}), 404
         if not existing["author_id"] or existing["author_id"] != author_id:
             return jsonify({"error": "forbidden"}), 403
-        con.execute("DELETE FROM messages WHERE id=?", (message_id,))
-        images = con.execute("SELECT filename FROM images WHERE message_id=?", (message_id,)).fetchall()
-        con.execute("DELETE FROM images WHERE message_id=?", (message_id,))
+        # 投稿本体と、その投稿への返信をまとめて削除する
+        ids = [message_id] + [r["id"] for r in con.execute("SELECT id FROM messages WHERE parent_id=?", (message_id,))]
+        marks = ",".join("?" * len(ids))
+        images = con.execute(f"SELECT filename FROM images WHERE message_id IN ({marks})", ids).fetchall()
+        con.execute(f"DELETE FROM images WHERE message_id IN ({marks})", ids)
+        con.execute(f"DELETE FROM messages WHERE id IN ({marks})", ids)
     for img in images:
         (UPLOAD_DIR / img["filename"]).unlink(missing_ok=True)
     return "", 204

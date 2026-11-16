@@ -1,12 +1,29 @@
 const VOTER_ID_KEY = 'miniboard-voter-id';
+const NAME_KEY = 'miniboard-name'; // 最後に使ったニックネーム
+
+// crypto.randomUUID() は https か localhost でしか使えないため、
+// IPアドレス等の http で開いた場合は getRandomValues() でIDを作る
+function createId() {
+    if (crypto.randomUUID) return crypto.randomUUID();
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)),
+        b => b.toString(16).padStart(2, '0')).join('');
+}
 
 export function getVoterId() {
     let voterId = localStorage.getItem(VOTER_ID_KEY);
     if (!voterId) {
-        voterId = crypto.randomUUID();
+        voterId = createId();
         localStorage.setItem(VOTER_ID_KEY, voterId);
     }
     return voterId;
+}
+
+export function getSavedName() {
+    return localStorage.getItem(NAME_KEY) || '';
+}
+
+export function saveName(name) {
+    localStorage.setItem(NAME_KEY, String(name || '').trim());
 }
 
 export function formatDateTime(isoString) {

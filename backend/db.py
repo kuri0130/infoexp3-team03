@@ -32,7 +32,8 @@ def init_db():
             message TEXT NOT NULL,
             author_id TEXT,
             created_at TEXT NOT NULL,
-            edited_at TEXT
+            edited_at TEXT,
+            parent_id INTEGER REFERENCES messages(id) ON DELETE CASCADE
         )""")
         columns = {row["name"] for row in con.execute("PRAGMA table_info(messages)")}
         if "edited_at" not in columns:
@@ -41,6 +42,9 @@ def init_db():
             con.execute("ALTER TABLE messages ADD COLUMN thread_id INTEGER REFERENCES threads(id) ON DELETE CASCADE")
         if "author_id" not in columns:
             con.execute("ALTER TABLE messages ADD COLUMN author_id TEXT")
+        # 返信機能：返信先の投稿ID（NULLなら通常の投稿）
+        if "parent_id" not in columns:
+            con.execute("ALTER TABLE messages ADD COLUMN parent_id INTEGER REFERENCES messages(id) ON DELETE CASCADE")
 
         # 既存メッセージや初期状態のためにデフォルトスレッドを用意する
         thread_count = con.execute("SELECT COUNT(*) FROM threads").fetchone()[0]

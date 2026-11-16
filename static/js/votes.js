@@ -14,11 +14,13 @@ async function voteMessage(messageId, vote, removeVote = false) {
 
     const result = await response.json();
     const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
-    article.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
-    article.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
-    article.querySelector('[data-vote="good"]').setAttribute('aria-label', `Good ${result.good_count}`);
-    article.querySelector('[data-vote="bad"]').setAttribute('aria-label', `Bad ${result.bad_count}`);
-    article.querySelectorAll('.vote-button').forEach(button => {
+    // 返信の中の評価ボタンを拾わないよう、この投稿自身のボタンだけを対象にする
+    const votes = article.querySelector(':scope > .message-actions .vote-actions');
+    votes.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
+    votes.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
+    votes.querySelector('[data-vote="good"]').setAttribute('aria-label', `Good ${result.good_count}`);
+    votes.querySelector('[data-vote="bad"]').setAttribute('aria-label', `Bad ${result.bad_count}`);
+    votes.querySelectorAll('.vote-button').forEach(button => {
         button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
     });
     setStatus(removeVote ? '評価を取り消しました' : '評価を更新しました');

@@ -19,11 +19,14 @@ def init_db():
             title TEXT NOT NULL,
             name TEXT NOT NULL,
             author_id TEXT,
-            created_at TEXT NOT NULL
+            created_at TEXT NOT NULL,
+            thread_type TEXT NOT NULL DEFAULT 'normal'
         )""")
         thread_columns = {row["name"] for row in con.execute("PRAGMA table_info(threads)")}
         if "author_id" not in thread_columns:
             con.execute("ALTER TABLE threads ADD COLUMN author_id TEXT")
+        if "thread_type" not in thread_columns:
+            con.execute("ALTER TABLE threads ADD COLUMN thread_type TEXT NOT NULL DEFAULT 'normal'")
 
         con.execute("""CREATE TABLE IF NOT EXISTS messages (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -60,6 +63,26 @@ def init_db():
             if orphan_exists:
                 first_thread = con.execute("SELECT id FROM threads ORDER BY id ASC LIMIT 1").fetchone()
                 con.execute("UPDATE messages SET thread_id = ? WHERE thread_id IS NULL", (first_thread["id"],))
+
+        # システム側で最初からおみくじスレッドを用意する
+        omikuji_thread = con.execute(
+            "SELECT id FROM threads WHERE thread_type = 'omikuji' LIMIT 1"
+        ).fetchone()
+        if omikuji_thread is None:
+            now = datetime.now(timezone.utc).isoformat()
+            cur = con.execute(
+                "INSERT INTO threads(title, name, created_at, thread_type) VALUES(?, ?, ?, ?)",
+                ("⛩️ おみくじスレッド", "システム", now, "omikuji"),
+            )
+            con.execute(
+                "INSERT INTO messages(thread_id, name, message, created_at) VALUES(?, ?, ?, ?)",
+                (
+                    cur.lastrowid,
+                    "システム",
+                    "⛩️ おみくじスレッドへようこそ！「おみくじを引く」ボタンから今日の運勢を占ってみましょう！大吉が出ると特別な演出が見られます✨",
+                    now,
+                ),
+            )
 
         con.execute("""CREATE TABLE IF NOT EXISTS message_votes (
             message_id INTEGER NOT NULL REFERENCES messages(id) ON DELETE CASCADE,

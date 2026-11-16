@@ -19,15 +19,22 @@ export function updateThreadContextUI() {
     const badge = document.querySelector('#current-thread-badge');
     const heading = document.querySelector('#messages-heading');
     const postButton = document.querySelector('#form button[type="submit"]');
+    const omikujiPanel = document.querySelector('#omikuji-panel');
 
     if (current) {
         badge.textContent = `投稿先スレッド: ${current.title}`;
         heading.textContent = `📋 ${current.title}`;
         postButton.disabled = false;
+        if (omikujiPanel) {
+            omikujiPanel.hidden = current.thread_type !== 'omikuji';
+        }
     } else {
         badge.textContent = 'スレッドを選択するか、新しくスレッドを立ててください';
         heading.textContent = '📋 みんなの投稿';
         postButton.disabled = true;
+        if (omikujiPanel) {
+            omikujiPanel.hidden = true;
+        }
     }
 }
 
@@ -42,12 +49,17 @@ export function renderThreads() {
         return;
     }
 
-    list.innerHTML = threads.map(thread => `
-        <div class="thread-item${thread.id === currentThreadId ? ' active' : ''}"
+    list.innerHTML = threads.map(thread => {
+        const isOmikuji = thread.thread_type === 'omikuji';
+        return `
+        <div class="thread-item${isOmikuji ? ' omikuji-thread-item' : ''}${thread.id === currentThreadId ? ' active' : ''}"
              data-thread-id="${thread.id}" tabindex="0" role="button"
              aria-pressed="${thread.id === currentThreadId}">
             <div class="thread-item-main">
-                <div class="thread-title">${escapeHtml(thread.title)}</div>
+                <div class="thread-title">
+                    ${escapeHtml(thread.title)}
+                    ${isOmikuji ? '<span class="omikuji-thread-badge">おみくじ可</span>' : ''}
+                </div>
                 <div class="thread-meta">
                     <span>作成: ${escapeHtml(thread.name)}</span>
                     <span>投稿数: ${thread.message_count}件</span>
@@ -56,7 +68,8 @@ export function renderThreads() {
             </div>
             ${thread.is_owner ? '<button type="button" class="delete-thread-button" aria-label="スレッドを削除">削除</button>' : ''}
         </div>
-    `).join('');
+    `;
+    }).join('');
 
     updateThreadContextUI();
 }

@@ -12,6 +12,19 @@ function getVoterId() {
     return voterId;
 }
 
+function formatDateTime(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    return new Intl.DateTimeFormat('ja-JP', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
+}
+
 function getCurrentThread() {
     return threads.find(t => t.id === currentThreadId) || null;
 }
@@ -50,9 +63,10 @@ function renderThreads() {
                 <div class="thread-meta">
                     <span>作成: ${escapeHtml(thread.name)}</span>
                     <span>投稿数: ${thread.message_count}件</span>
+                    <span>更新: ${formatDateTime(thread.last_posted_at || thread.created_at)}</span>
                 </div>
             </div>
-            <button type="button" class="delete-thread-button" aria-label="スレッドを削除">削除</button>
+            ${thread.is_owner ? '<button type="button" class="delete-thread-button" aria-label="スレッドを削除">削除</button>' : ''}
         </div>
     `).join('');
 
@@ -60,7 +74,7 @@ function renderThreads() {
 }
 
 async function loadThreads() {
-    const r = await fetch('/api/threads');
+    const r = await fetch(`/api/threads?author_id=${encodeURIComponent(getVoterId())}`);
     if (!r.ok) {
         throw new Error('スレッドの読み込みに失敗しました');
     }
@@ -80,7 +94,7 @@ async function loadMessages() {
 
     const voterId = getVoterId();
     const [r, ri] = await Promise.all([
-        fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}&thread_id=${currentThreadId}`),
+        fetch(`/api/messages?voter_id=${encodeURIComponent(voterId)}&author_id=${encodeURIComponent(voterId)}&thread_id=${currentThreadId}`),
         fetch('/api/images')
     ]);
     if (!r.ok) {
@@ -105,11 +119,12 @@ async function loadMessages() {
             <p class="message-text">${escapeHtml(message.message)}</p>
             ${renderImages(imagesByMessage[message.id] || [])}
             <div class="meta">
-                <span>#${message.id}${message.edited_at ? ' ・ 編集済み' : ''}</span>
+                <span>#${message.id} ・ ${formatDateTime(message.created_at)}${message.edited_at ? ` ・ 編集済み (${formatDateTime(message.edited_at)})` : ''}</span>
+                ${message.is_owner ? `
                 <div class="message-actions">
                     <button type="button" class="edit-button">編集</button>
                     <button type="button" class="delete-button">削除</button>
-                </div>
+                </div>` : ''}
             </div>
             <div class="message-actions">
                 <div class="vote-actions" aria-label="投稿を評価">
@@ -174,9 +189,11 @@ async function deleteThread(threadId) {
         return;
     }
 
-    const r = await fetch(`/api/threads/${threadId}`, { method: 'DELETE' });
+    const r = await fetch(`/api/threads/${threadId}?author_id=${encodeURIComponent(getVoterId())}`, {
+        method: 'DELETE'
+    });
     if (!r.ok) {
-        throw new Error('スレッドの削除に失敗しました');
+        throw new Error(r.status === 403 ? '自分が立てたスレッド以外は削除できません' : 'スレッドの削除に失敗しました');
     }
 
     if (currentThreadId === threadId) {
@@ -192,9 +209,11 @@ async function deleteMessage(messageId) {
         return;
     }
 
-    const r = await fetch(`/api/messages/${messageId}`, { method: 'DELETE' });
+    const r = await fetch(`/api/messages/${messageId}?author_id=${encodeURIComponent(getVoterId())}`, {
+        method: 'DELETE'
+    });
     if (!r.ok) {
-        throw new Error('投稿の削除に失敗しました');
+        throw new Error(r.status === 403 ? '自分の投稿以外は削除できません' : '投稿の削除に失敗しました');
     }
 
     await loadThreads();
@@ -224,11 +243,11 @@ async function updateMessage(messageElement) {
     const r = await fetch(`/api/messages/${messageId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, author_id: getVoterId() })
     });
 
     if (!r.ok) {
-        throw new Error('投稿の編集に失敗しました');
+        throw new Error(r.status === 403 ? '自分の投稿以外は編集できません' : '投稿の編集に失敗しました');
     }
 
     await loadMessages();
@@ -294,7 +313,8 @@ threadForm.addEventListener('submit', async event => {
         body: JSON.stringify({
             title: titleInput.value,
             name: nameInput.value,
-            message: messageInput.value
+            message: messageInput.value,
+            author_id: getVoterId()
         })
     });
 
@@ -428,7 +448,8 @@ document.querySelector('#form').addEventListener('submit', async event => {
         body: JSON.stringify({
             thread_id: currentThreadId,
             name: nameInput.value,
-            message: messageInput.value
+            message: messageInput.value,
+            author_id: getVoterId()
         })
     });
 

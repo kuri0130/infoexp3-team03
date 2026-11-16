@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from backend.config import UPLOAD_DIR
 from backend.db import connect
+from backend.events import publish_event
 from backend.utils import extract_author_id, public_row
 
 messages_bp = Blueprint("messages", __name__)
@@ -88,6 +89,11 @@ def create_message():
                FROM messages WHERE id=?""",
             (author_id or "", cur.lastrowid),
         ).fetchone()
+    publish_event("board_updated", {
+        "reason": "message_created",
+        "thread_id": thread_id,
+        "message_id": row["id"],
+    })
     return jsonify(public_row(row)), 201
 
 
@@ -100,7 +106,7 @@ def update_message(message_id):
         return jsonify({"error": "message is required"}), 400
     edited_at = datetime.now(timezone.utc).isoformat()
     with connect() as con:
-        existing = con.execute("SELECT author_id FROM messages WHERE id=?", (message_id,)).fetchone()
+        existing = con.execute("SELECT author_id, thread_id FROM messages WHERE id=?", (message_id,)).fetchone()
         if existing is None:
             return jsonify({"error": "not found"}), 404
         if not existing["author_id"] or existing["author_id"] != author_id:
@@ -114,6 +120,11 @@ def update_message(message_id):
                FROM messages WHERE id=?""",
             (author_id or "", message_id),
         ).fetchone()
+    publish_event("board_updated", {
+        "reason": "message_updated",
+        "thread_id": existing["thread_id"],
+        "message_id": message_id,
+    })
     return jsonify(public_row(row))
 
 
@@ -121,7 +132,7 @@ def update_message(message_id):
 def delete_message(message_id):
     author_id = extract_author_id()
     with connect() as con:
-        existing = con.execute("SELECT author_id FROM messages WHERE id=?", (message_id,)).fetchone()
+        existing = con.execute("SELECT author_id, thread_id FROM messages WHERE id=?", (message_id,)).fetchone()
         if existing is None:
             return jsonify({"error": "not found"}), 404
         if not existing["author_id"] or existing["author_id"] != author_id:
@@ -134,4 +145,9 @@ def delete_message(message_id):
         con.execute(f"DELETE FROM messages WHERE id IN ({marks})", ids)
     for img in images:
         (UPLOAD_DIR / img["filename"]).unlink(missing_ok=True)
+    publish_event("board_updated", {
+        "reason": "message_deleted",
+        "thread_id": existing["thread_id"],
+        "message_id": message_id,
+    })
     return "", 204

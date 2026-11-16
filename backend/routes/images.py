@@ -5,6 +5,7 @@ from flask import Blueprint, jsonify, request, send_from_directory
 
 from backend.config import MAX_IMAGES_PER_MESSAGE, MAX_IMAGE_BYTES, UPLOAD_DIR
 from backend.db import connect
+from backend.events import publish_event
 
 images_bp = Blueprint("images", __name__)
 
@@ -62,7 +63,8 @@ def upload_images(message_id):
     created_at = datetime.now(timezone.utc).isoformat()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     with connect() as con:
-        if con.execute("SELECT 1 FROM messages WHERE id=?", (message_id,)).fetchone() is None:
+        message = con.execute("SELECT thread_id FROM messages WHERE id=?", (message_id,)).fetchone()
+        if message is None:
             return jsonify({"error": "not found"}), 404
         count = con.execute("SELECT COUNT(*) FROM images WHERE message_id=?", (message_id,)).fetchone()[0]
         if count + len(payloads) > MAX_IMAGES_PER_MESSAGE:
@@ -80,6 +82,11 @@ def upload_images(message_id):
             f"SELECT * FROM images WHERE id IN ({','.join('?' * len(ids))}) ORDER BY id",
             ids,
         ).fetchall()
+    publish_event("board_updated", {
+        "reason": "images_uploaded",
+        "thread_id": message["thread_id"],
+        "message_id": message_id,
+    })
     return jsonify([image_to_dict(r) for r in rows]), 201
 
 

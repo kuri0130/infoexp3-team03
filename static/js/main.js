@@ -2,6 +2,7 @@ import { initDanmaku } from './danmaku.js';
 import { initImages } from './images.js';
 import { initMessages, loadMessages } from './messages.js';
 import { initOmikuji } from './omikuji.js';
+import { initRealtime } from './realtime.js';
 import { initThreads, loadThreads } from './threads.js';
 import { setStatus } from './utils.js';
 import { initVotes } from './votes.js';
@@ -19,6 +20,7 @@ initThreads({ onThreadChange: loadMessages });
 initMessages({ onMessagesChanged: reloadBoard });
 initOmikuji({ onOmikujiDrawn: reloadBoard });
 initTopicRoulette();
+initRealtime({ onThreadsRefresh: loadThreads, onMessagesRefresh: loadMessages });
 
 reloadBoard().catch(error => {
     setStatus(error.message);

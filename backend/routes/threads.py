@@ -4,6 +4,7 @@ from flask import Blueprint, jsonify, request
 
 from backend.config import UPLOAD_DIR
 from backend.db import connect
+from backend.events import publish_event
 from backend.utils import extract_author_id, public_row
 
 threads_bp = Blueprint("threads", __name__)
@@ -59,6 +60,10 @@ def create_thread():
             FROM threads
             WHERE id = ?
         """, (author_id or "", thread_id)).fetchone()
+    publish_event("board_updated", {
+        "reason": "thread_created",
+        "thread_id": thread_id,
+    })
     return jsonify(public_row(row)), 201
 
 
@@ -84,4 +89,8 @@ def delete_thread(thread_id):
         con.execute("DELETE FROM threads WHERE id = ?", (thread_id,))
     for img in images:
         (UPLOAD_DIR / img["filename"]).unlink(missing_ok=True)
+    publish_event("board_updated", {
+        "reason": "thread_deleted",
+        "thread_id": thread_id,
+    })
     return "", 204

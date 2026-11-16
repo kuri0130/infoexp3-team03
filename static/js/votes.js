@@ -1,5 +1,30 @@
 import { getVoterId, setStatus } from './utils.js';
 
+export function updateVoteCounts(messageId, goodCount, badCount, myVote = undefined) {
+    const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
+    if (!article) return;
+
+    // 返信の中の評価ボタンを拾わないよう、この投稿自身のボタンだけを対象にする
+    const votes = article.querySelector(':scope > .message-actions .vote-actions');
+    if (!votes) return;
+
+    const goodBtn = votes.querySelector('[data-vote="good"]');
+    const badBtn = votes.querySelector('[data-vote="bad"]');
+    if (goodBtn) {
+        goodBtn.querySelector('.vote-count').textContent = goodCount;
+        goodBtn.setAttribute('aria-label', `Good ${goodCount}`);
+    }
+    if (badBtn) {
+        badBtn.querySelector('.vote-count').textContent = badCount;
+        badBtn.setAttribute('aria-label', `Bad ${badCount}`);
+    }
+    if (myVote !== undefined) {
+        votes.querySelectorAll('.vote-button').forEach(button => {
+            button.setAttribute('aria-pressed', String(button.dataset.vote === myVote));
+        });
+    }
+}
+
 async function voteMessage(messageId, vote, removeVote = false) {
     const response = await fetch(`/api/messages/${messageId}/votes`, {
         method: removeVote ? 'DELETE' : 'POST',
@@ -13,16 +38,7 @@ async function voteMessage(messageId, vote, removeVote = false) {
     }
 
     const result = await response.json();
-    const article = document.querySelector(`.message[data-message-id="${messageId}"]`);
-    // 返信の中の評価ボタンを拾わないよう、この投稿自身のボタンだけを対象にする
-    const votes = article.querySelector(':scope > .message-actions .vote-actions');
-    votes.querySelector('[data-vote="good"] .vote-count').textContent = result.good_count;
-    votes.querySelector('[data-vote="bad"] .vote-count').textContent = result.bad_count;
-    votes.querySelector('[data-vote="good"]').setAttribute('aria-label', `Good ${result.good_count}`);
-    votes.querySelector('[data-vote="bad"]').setAttribute('aria-label', `Bad ${result.bad_count}`);
-    votes.querySelectorAll('.vote-button').forEach(button => {
-        button.setAttribute('aria-pressed', String(button.dataset.vote === result.my_vote));
-    });
+    updateVoteCounts(messageId, result.good_count, result.bad_count, result.my_vote);
     setStatus(removeVote ? '評価を取り消しました' : '評価を更新しました');
 }
 

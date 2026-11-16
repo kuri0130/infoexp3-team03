@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from backend.db import connect
+from backend.events import publish_event
 
 votes_bp = Blueprint("votes", __name__)
 
@@ -36,6 +37,11 @@ def vote_message(message_id):
         """, (message_id, voter_id, vote))
         counts = _fetch_vote_counts(con, message_id)
 
+    publish_event("vote", {
+        "message_id": message_id,
+        "good_count": counts["good_count"],
+        "bad_count": counts["bad_count"],
+    })
     return jsonify({
         "good_count": counts["good_count"],
         "bad_count": counts["bad_count"],
@@ -61,6 +67,11 @@ def delete_vote(message_id):
         )
         counts = _fetch_vote_counts(con, message_id)
 
+    publish_event("vote", {
+        "message_id": message_id,
+        "good_count": counts["good_count"],
+        "bad_count": counts["bad_count"],
+    })
     return jsonify({
         "good_count": counts["good_count"],
         "bad_count": counts["bad_count"],

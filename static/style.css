@@ -29,9 +29,11 @@ body {
 }
 
 .app-header h1 {
+    width: 30ch;
+    max-width: 100%;
     font-size: 36px;
     color: #7563b8;
-    margin: 5px 0;
+    margin: 5px auto;
     letter-spacing: 2px;
 }
 
